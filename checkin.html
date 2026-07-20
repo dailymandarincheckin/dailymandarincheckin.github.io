@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cai Laoshi · Chinese Daily Check-in</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#fbf3e4;--cream2:#f5e9d4;--ink:#2a2622;--sub:#8c8175;
+    --persimmon:#e8622d;--cyan:#2e8fb0;--bamboo:#5a8a4a;--glaze:#e8b33d;
+    --line:#e6d8bf;--card:#fffaf0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  @media (pointer:fine){ *{cursor:none;} }
+  body{
+    font-family:"Poppins","Noto Sans SC",-apple-system,sans-serif;color:var(--ink);
+    background-color:var(--cream);
+    background-image:
+      radial-gradient(circle at 12% 18%, rgba(232,98,45,.06) 0 22%, transparent 22%),
+      radial-gradient(circle at 88% 8%, rgba(46,143,176,.06) 0 18%, transparent 18%),
+      radial-gradient(circle at 78% 92%, rgba(90,138,74,.05) 0 20%, transparent 20%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)' opacity='0.04'/%3E%3C/svg%3E");
+    -webkit-font-smoothing:antialiased;overflow-x:hidden;
+  }
+  .wrap{max-width:600px;margin:0 auto;padding:40px 22px 80px;}
+
+  #brush{position:fixed;top:0;left:0;width:34px;height:34px;pointer-events:none;z-index:9999;
+    transform:translate(-50%,-50%);transition:transform .08s ease-out;will-change:transform;}
+  @media (pointer:coarse){ #brush{display:none;} }
+  #brush.press{transform:translate(-50%,-40%) scale(.8) rotate(-8deg);}
+
+  #gateView{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;}
+  .gate-card{background:var(--card);border:2.5px solid var(--ink);border-radius:20px;padding:40px 34px;max-width:400px;
+    box-shadow:8px 8px 0 rgba(232,98,45,.18);}
+  .gate-card h1{font-weight:900;font-size:24px;margin-bottom:10px;}
+  .gate-card p{color:var(--sub);font-size:14px;line-height:1.6;}
+  .spinner{width:40px;height:40px;border:4px solid var(--line);border-top-color:var(--persimmon);border-radius:50%;
+    margin:0 auto 20px;animation:spin 1s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  #appView{display:none;}
+  .masthead{margin-bottom:8px;}
+  .masthead h2{font-family:"Poppins",sans-serif;font-weight:800;font-size:30px;letter-spacing:-.5px;line-height:1.1;}
+  .masthead h2 .cn{font-weight:900;color:var(--persimmon);}
+  .whoami{margin-top:6px;font-size:13px;color:var(--sub);font-weight:600;}
+
+  .quote{background:var(--card);border:2.5px solid var(--ink);border-radius:16px;padding:20px 22px;
+    margin:22px 0 30px;position:relative;box-shadow:5px 5px 0 rgba(46,143,176,.2);animation:slideIn .5s ease .1s both;}
+  @keyframes slideIn{from{opacity:0;transform:translateX(-12px);}to{opacity:1;transform:none;}}
+  .quote .qmark{position:absolute;top:-16px;left:16px;background:var(--glaze);color:var(--ink);
+    font-weight:900;font-size:20px;width:36px;height:36px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;border:2.5px solid var(--ink);transform:rotate(-6deg);}
+  .quote .zh{font-weight:700;font-size:21px;margin-top:4px;line-height:1.4;}
+  .quote .py{color:var(--cyan);font-size:13px;margin-top:5px;letter-spacing:.3px;font-style:italic;}
+  .quote .en{color:var(--sub);font-size:13.5px;margin-top:6px;line-height:1.5;}
+
+  .rowlabel{display:flex;align-items:center;gap:10px;margin:0 2px 16px;}
+  .rowlabel .dot{width:9px;height:9px;border-radius:50%;background:var(--bamboo);}
+  .rowlabel span{font-size:12px;font-weight:700;letter-spacing:2px;color:var(--sub);text-transform:uppercase;}
+
+  /* ===== 合并后的任务卡片 ===== */
+  .taskcard{background:var(--card);border:2.5px solid var(--ink);border-radius:20px;padding:24px 22px;
+    box-shadow:6px 6px 0 rgba(42,38,34,.14);position:relative;animation:tileIn .45s ease both;}
+  @keyframes tileIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+  .taskcard.done{box-shadow:6px 6px 0 rgba(90,138,74,.3);border-color:var(--bamboo);}
+  .tc-top{display:flex;align-items:center;gap:16px;margin-bottom:14px;}
+  .tc-glyph{width:56px;height:56px;flex:0 0 56px;display:flex;align-items:center;justify-content:center;
+    border:2px solid var(--ink);border-radius:12px;background:var(--cream);}
+  .tc-glyph svg{width:34px;height:34px;}
+  .tc-daytag{font-family:"Poppins",sans-serif;font-size:11px;letter-spacing:1.5px;font-weight:700;text-transform:uppercase;margin-bottom:2px;}
+  .tc-title{font-family:"Poppins",sans-serif;font-size:18px;font-weight:700;line-height:1.2;}
+  .tc-title .cn{font-weight:900;}
+  .tc-desc{font-size:13.5px;color:#5a534a;line-height:1.6;margin-bottom:6px;}
+  .tc-example{background:var(--cream2);border-radius:10px;padding:10px 12px;margin:10px 0;}
+  .tc-example .ex-zh{font-weight:700;font-size:15px;}
+  .tc-example .ex-py{color:var(--cyan);font-size:12px;font-style:italic;margin-top:2px;}
+  .typetag{display:inline-block;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-top:8px;letter-spacing:.5px;}
+  .typetag.upload{background:rgba(46,143,176,.15);color:var(--cyan);}
+  .typetag.text{background:rgba(90,138,74,.15);color:var(--bamboo);}
+
+  .tc-action{margin-top:16px;border-top:2px dashed var(--line);padding-top:16px;}
+  .file-btn{display:inline-block;background:var(--cyan);border:2.5px solid var(--ink);color:#fff;
+    padding:11px 18px;border-radius:12px;font-size:14px;font-weight:600;letter-spacing:.5px;
+    box-shadow:3px 3px 0 var(--ink);transition:.12s;}
+  .file-btn:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--ink);background:#37a0c4;}
+  .fileName{font-size:13px;color:var(--sub);margin-top:10px;}
+  textarea.answer{width:100%;min-height:90px;padding:12px 14px;border:2px solid var(--line);border-radius:12px;
+    font-size:15px;font-family:"Noto Sans SC",sans-serif;background:var(--cream);resize:vertical;outline:none;transition:.2s;color:var(--ink);}
+  textarea.answer:focus{border-color:var(--bamboo);background:#fff;}
+  .btn{width:100%;margin-top:16px;padding:15px;border:2.5px solid var(--ink);border-radius:14px;
+    background:var(--bamboo);color:#fff;font-size:16px;font-weight:700;letter-spacing:1px;
+    font-family:"Poppins",sans-serif;transition:.12s;box-shadow:4px 4px 0 var(--ink);}
+  .btn:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--ink);background:#6a9a58;}
+  .btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink);}
+  .btn:disabled{opacity:.5;box-shadow:4px 4px 0 var(--ink);transform:none;}
+  .done-banner{text-align:center;padding:14px;background:rgba(90,138,74,.12);border-radius:12px;margin-top:16px;
+    color:var(--bamboo);font-weight:700;font-size:15px;}
+  .undo{display:block;margin:10px auto 0;background:none;border:none;color:var(--sub);font-size:12px;
+    text-decoration:underline;font-family:"Noto Sans SC",sans-serif;}
+
+  .pastbtn{text-align:center;padding:12px;font-size:13px;font-weight:600;color:var(--cyan);
+    border:2px dashed var(--line);border-radius:14px;background:transparent;transition:.15s;margin-top:14px;}
+  .pastbtn:hover{background:var(--card);border-color:var(--cyan);}
+
+  .peek{margin-top:16px;text-align:center;font-size:12px;color:var(--sub);}
+  .peek b{color:var(--glaze);}
+
+  .colophon{text-align:center;margin-top:40px;}
+  .proverb{display:inline-block;padding:20px 28px;border:2.5px solid var(--ink);border-radius:18px;background:var(--glaze);
+    box-shadow:4px 4px 0 var(--ink);transform:rotate(-1deg);}
+  .proverb .pzh{color:var(--ink);font-size:20px;font-weight:900;letter-spacing:1px;}
+  .proverb .ppy{color:#5a4a2a;font-size:12.5px;font-style:italic;margin-top:6px;}
+  .proverb .pen{color:#6a5a3a;font-size:12.5px;margin-top:4px;}
+
+  .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(90px);
+    background:var(--ink);color:#fff;padding:13px 24px;border-radius:30px;font-size:14px;font-weight:600;letter-spacing:.5px;
+    opacity:0;transition:.3s cubic-bezier(.2,1.3,.4,1);z-index:99;border:2.5px solid var(--glaze);}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  #celebrate{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;
+    background:rgba(42,38,34,.55);backdrop-filter:blur(3px);}
+  #celebrate.show{display:flex;animation:fadeBg .3s ease;}
+  @keyframes fadeBg{from{opacity:0;}to{opacity:1;}}
+  .celebrate-card{background:var(--card);border:3px solid var(--ink);border-radius:26px;padding:38px 34px 30px;
+    text-align:center;max-width:340px;box-shadow:10px 10px 0 rgba(232,98,45,.35);position:relative;
+    animation:bounceIn .55s cubic-bezier(.2,1.5,.35,1);}
+  @keyframes bounceIn{0%{opacity:0;transform:scale(.5) translateY(30px);}60%{transform:scale(1.05);}100%{opacity:1;transform:scale(1);}}
+  .celebrate-seal{width:88px;height:88px;margin:0 auto 16px;background:var(--persimmon);border:3px solid var(--ink);
+    border-radius:20px;display:flex;align-items:center;justify-content:center;transform:rotate(-6deg);
+    box-shadow:4px 4px 0 var(--ink);animation:sealPop .6s cubic-bezier(.2,1.6,.4,1) .1s both;}
+  @keyframes sealPop{0%{transform:rotate(-6deg) scale(0);}70%{transform:rotate(-6deg) scale(1.15);}100%{transform:rotate(-6deg) scale(1);}}
+  .celebrate-seal span{font-weight:900;font-size:44px;color:#fff;}
+  .celebrate-card h3{font-weight:900;font-size:24px;margin-bottom:4px;}
+  .celebrate-card .en{color:var(--sub);font-size:14px;margin-bottom:6px;font-weight:600;}
+  .celebrate-card .streak{font-size:13px;color:var(--bamboo);font-weight:700;margin-bottom:20px;}
+  .celebrate-card .cbtn{display:inline-block;background:var(--bamboo);border:2.5px solid var(--ink);color:#fff;
+    padding:12px 30px;border-radius:14px;font-family:"Poppins",sans-serif;font-weight:700;font-size:15px;
+    box-shadow:4px 4px 0 var(--ink);transition:.12s;}
+  .cbtn:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--ink);}
+  .confetti{position:fixed;top:-20px;width:12px;height:12px;z-index:1001;pointer-events:none;border-radius:2px;}
+</style>
+</head>
+<body>
+
+<svg id="brush" viewBox="0 0 34 34" fill="none">
+  <path d="M17 3 C 20 10, 21 15, 18 22 C 17 25, 16 25, 15 22 C 13 15, 14 10, 17 3 Z" fill="#2a2622"/>
+  <path d="M17 3 C 19 9, 20 14, 18 20" stroke="#e8622d" stroke-width="1.2" stroke-linecap="round"/>
+  <circle cx="16.5" cy="24" r="2.4" fill="#e8622d"/>
+</svg>
+
+<div id="gateView">
+  <div class="gate-card" id="gateCard">
+    <div class="spinner"></div>
+    <h1>正在打开你的打卡本…</h1>
+    <p>Loading your check-in page…</p>
+  </div>
+</div>
+
+<div id="appView">
+  <div class="wrap">
+    <div class="masthead">
+      <h2>Daily <span class="cn">打卡</span> Check-in</h2>
+      <div class="whoami" id="whoami"></div>
+    </div>
+
+    <div class="quote" id="quoteCard">
+      <div class="qmark">语</div>
+      <div class="zh" id="qZh"></div>
+      <div class="py" id="qPy"></div>
+      <div class="en" id="qEn"></div>
+    </div>
+
+    <div class="rowlabel">
+      <span class="dot"></span><span>Today's Task</span>
+    </div>
+
+    <div id="taskArea"></div>
+
+    <div class="colophon">
+      <div class="proverb">
+        <div class="pzh">一天一点，水滴石穿。</div>
+        <div class="ppy">Yī tiān yī diǎn, shuǐ dī shí chuān.</div>
+        <div class="pen">A little each day — dripping water bores through stone.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="celebrate">
+  <div class="celebrate-card">
+    <div class="celebrate-seal"><span id="celSeal">棒</span></div>
+    <h3 id="celZh">恭喜你打卡成功！</h3>
+    <div class="en" id="celEn">Checked in!</div>
+    <div class="streak" id="celStreak"></div>
+    <div class="cbtn" onclick="closeCelebrate()">继续 · Keep going</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===== Supabase 配置 ===== */
+const SUPABASE_URL = "https://qgtlqiszzgdkjbfpejef.supabase.co";
+const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFndGxxaXN6emdka2piZnBlamVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ1MjI4MzAsImV4cCI6MjEwMDA5ODgzMH0.nPh9EVcu7y7gyhiF2RpplU49rUhCv_pmy-lvuCfLYXM";
+
+/* 调用 Supabase 的一个后端函数 (RPC) */
+async function rpc(fn, args){
+  const res = await fetch(SUPABASE_URL+"/rest/v1/rpc/"+fn, {
+    method:"POST",
+    headers:{ "apikey":ANON, "Authorization":"Bearer "+ANON, "Content-Type":"application/json" },
+    body: JSON.stringify(args||{})
+  });
+  const raw = await res.text();
+  if(!res.ok){ let m=raw; try{ m=JSON.parse(raw).message||raw; }catch(e){} throw new Error(m); }
+  return raw ? JSON.parse(raw) : null;
+}
+
+/* 上传一个文件到 Storage 的 uploads 桶，返回公开网址 */
+async function uploadFile(file){
+  const ext = (file.name.split('.').pop()||"bin").toLowerCase();
+  const path = currentUsername + "/" + Date.now() + "_" + Math.random().toString(36).slice(2,8) + "." + ext;
+  const res = await fetch(SUPABASE_URL+"/storage/v1/object/uploads/"+encodeURI(path), {
+    method:"POST",
+    headers:{ "apikey":ANON, "Authorization":"Bearer "+ANON, "Content-Type": file.type||"application/octet-stream" },
+    body: file
+  });
+  if(!res.ok){ throw new Error(await res.text()); }
+  return SUPABASE_URL+"/storage/v1/object/public/uploads/"+encodeURI(path);
+}
+
+/* 光标 */
+const brush=document.getElementById('brush');
+let bx=innerWidth/2,by=innerHeight/2,tx=bx,ty=by;
+addEventListener('mousemove',e=>{tx=e.clientX;ty=e.clientY;});
+(function anim(){bx+=(tx-bx)*.35;by+=(ty-by)*.35;brush.style.left=bx+'px';brush.style.top=by+'px';requestAnimationFrame(anim);})();
+addEventListener('mousedown',()=>brush.classList.add('press'));
+addEventListener('mouseup',()=>brush.classList.remove('press'));
+addEventListener('mouseover',e=>{if(e.target.closest('button,.file-btn,label,input,a,textarea,.cbtn'))brush.classList.add('press');});
+addEventListener('mouseout',e=>{if(e.target.closest('button,.file-btn,label,input,a,textarea,.cbtn'))brush.classList.remove('press');});
+
+/* 图标（按星期匹配） */
+const ICONS={
+  MON:`<svg viewBox="0 0 40 40" fill="none"><path d="M8 12 Q8 9 11 9 L29 9 Q32 9 32 12 L32 23 Q32 26 29 26 L18 26 L12 31 L12 26 L11 26 Q8 26 8 23 Z" stroke="#e8622d" stroke-width="2" stroke-linejoin="round"/><path d="M14 16 L26 16 M14 20 L22 20" stroke="#e8622d" stroke-width="1.6" stroke-linecap="round"/></svg>`,
+  TUE:`<svg viewBox="0 0 40 40" fill="none"><path d="M14 20 Q14 12 21 12 Q28 12 28 19 Q28 24 24 25 Q22 26 22 29" stroke="#2e8fb0" stroke-width="2" stroke-linecap="round"/><circle cx="17" cy="20" r="1.6" fill="#2e8fb0"/><path d="M31 14 Q34 20 31 26 M34 11 Q39 20 34 29" stroke="#e8622d" stroke-width="1.6" stroke-linecap="round"/></svg>`,
+  WED:`<svg viewBox="0 0 40 40" fill="none"><path d="M20 10 Q14 7 8 9 L8 29 Q14 27 20 30 Q26 27 32 29 L32 9 Q26 7 20 10 Z" stroke="#5a8a4a" stroke-width="2" stroke-linejoin="round"/><path d="M20 10 L20 30" stroke="#5a8a4a" stroke-width="1.6"/></svg>`,
+  THU:`<svg viewBox="0 0 40 40" fill="none"><path d="M27 8 L32 13 L16 29 L10 31 L12 25 Z" stroke="#e8622d" stroke-width="2" stroke-linejoin="round"/><path d="M24 11 L29 16" stroke="#e8622d" stroke-width="1.6"/><path d="M10 31 Q13 28 12 25" stroke="#2e8fb0" stroke-width="1.7" stroke-linecap="round"/></svg>`,
+  FRI:`<svg viewBox="0 0 40 40" fill="none"><path d="M12 14 L10 8 L16 12 M28 14 L30 8 L24 12" stroke="#5a8a4a" stroke-width="1.9" stroke-linejoin="round"/><path d="M10 20 Q10 13 20 13 Q30 13 30 20 Q30 30 20 30 Q10 30 10 20 Z" stroke="#5a8a4a" stroke-width="2"/><circle cx="16" cy="20" r="1.4" fill="#5a8a4a"/><circle cx="24" cy="20" r="1.4" fill="#5a8a4a"/><path d="M20 23 L20 25 M20 25 Q17 26 15 25 M20 25 Q23 26 25 25" stroke="#5a8a4a" stroke-width="1.3" stroke-linecap="round"/></svg>`,
+  SAT:`<svg viewBox="0 0 40 40" fill="none"><rect x="11" y="8" width="18" height="24" rx="2" stroke="#2e8fb0" stroke-width="2"/><path d="M15 15 L25 15 M15 20 L25 20 M15 25 L21 25" stroke="#2e8fb0" stroke-width="1.5" stroke-linecap="round"/><path d="M22 26 L25 29 L31 22" stroke="#e8622d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  SUN:`<svg viewBox="0 0 40 40" fill="none"><path d="M11 17 L28 17 L27 26 Q26 30 20 30 Q14 30 13 26 Z" stroke="#8c8175" stroke-width="2" stroke-linejoin="round"/><path d="M28 19 Q33 19 33 22 Q33 25 29 25" stroke="#8c8175" stroke-width="1.7" stroke-linecap="round"/><path d="M16 12 Q15 10 17 8 M20 12 Q19 10 21 8 M24 12 Q23 10 25 8" stroke="#e8622d" stroke-width="1.5" stroke-linecap="round"/></svg>`
+};
+const DAYCOLOR={MON:"#e8622d",TUE:"#2e8fb0",WED:"#5a8a4a",THU:"#e8622d",FRI:"#2e8fb0",SAT:"#5a8a4a",SUN:"#8c8175"};
+const DAYORDER=["MON","TUE","WED","THU","FRI","SAT","SUN"];
+const DAYCN={MON:"周一",TUE:"周二",WED:"周三",THU:"周四",FRI:"周五",SAT:"周六",SUN:"周日"};
+
+const QUOTES=[
+  {zh:"慢慢来，比较快。",py:"Màn man lái, bǐjiào kuài.",en:"Slow down — it's actually faster."},
+  {zh:"活到老，学到老。",py:"Huó dào lǎo, xué dào lǎo.",en:"You're never too old to learn."},
+  {zh:"万事开头难。",py:"Wànshì kāitóu nán.",en:"Every beginning is hard — the start is the toughest part."},
+  {zh:"熟能生巧。",py:"Shú néng shēng qiǎo.",en:"Practice makes perfect."},
+  {zh:"喝奶茶要加珍珠，学中文要加练习。",py:"...yào jiā liànxí.",en:"Milk tea needs pearls; Chinese needs practice. 🧋"},
+  {zh:"你今天很酷。",py:"Nǐ jīntiān hěn kù.",en:"You're pretty cool today. 😎"},
+  {zh:"你比昨天更厉害了。",py:"Nǐ bǐ zuótiān gèng lìhai le.",en:"You're better than you were yesterday."}
+];
+const CHEERS=[
+  {seal:"棒",en:"Awesome! Checked in."},
+  {seal:"赞",en:"You crushed it!"},
+  {seal:"牛",en:"Keep the streak alive!"},
+  {seal:"妙",en:"Beautiful work today!"},
+  {seal:"燃",en:"On fire today! 🔥"}
+];
+
+let currentUser="";       // 显示用的名字（display name）
+let currentUsername="";   // 登录码（username），存本地进度 + 提交打卡用
+let TASKS=[];       // 从 Supabase 读到的任务（按 MON..SUN 排好）
+let showPast=false;
+
+function getUserParam(){ return (new URLSearchParams(location.search).get('u')||"").trim(); }
+
+function boot(){
+  const u=getUserParam();
+  if(!u){ gateError("这个链接缺少名字。","This link is missing a name. Please use the personal link your teacher gave you."); return; }
+  currentUsername=u;
+  rpc("student_login",{p_username:u})
+    .then(res=>{
+      if(res && res.ok){ currentUser=res.name||u; TASKS=sortTasks(res.tasks||[]); startApp(); }
+      else gateError("找不到这个学生。","We couldn't find this student. Please check your link, or ask your teacher.");
+    })
+    .catch(()=>gateError("连接不上服务器。","Couldn't reach the server. Please check your internet and refresh."));
+}
+function sortTasks(arr){
+  // 按 MON..SUN 顺序排列
+  const map={}; arr.forEach(t=>{ map[(t.day||"").toUpperCase()]=t; });
+  return DAYORDER.map(d=>map[d]).filter(Boolean);
+}
+function gateError(zh,en){ document.getElementById('gateCard').innerHTML=`<h1>${zh}</h1><p>${en}</p>`; }
+function startApp(){
+  document.getElementById('gateView').style.display='none';
+  document.getElementById('appView').style.display='block';
+  document.getElementById('whoami').textContent="👋 Hi, "+currentUser;
+  showQuote(); renderTask();
+}
+
+function todayIdx(){ let d=new Date().getDay(); return (d+6)%7; } // 0=MON..6=SUN
+
+function showQuote(){
+  const q=QUOTES[todayIdx()];
+  document.getElementById('qZh').textContent=q.zh;
+  document.getElementById('qPy').textContent=q.py;
+  document.getElementById('qEn').textContent=q.en;
+}
+
+/* 打卡状态存浏览器 */
+function storeKey(){ return "cai_checkin_"+currentUsername; }
+function getDone(){ try{return JSON.parse(localStorage.getItem(storeKey())||"{}");}catch(e){return {};} }
+function setDone(o){ try{localStorage.setItem(storeKey(),JSON.stringify(o));}catch(e){} }
+
+/* 生成一张任务卡 */
+function cardHTML(t,idx,done){
+  const day=(t.day||"").toUpperCase();
+  const isUpload=(t.type!=="text");
+  const isDone=!!done[idx];
+  let exampleHTML="";
+  if(t.example){
+    exampleHTML=`<div class="tc-example"><div class="ex-zh">${t.example}</div>`+
+      (t.pinyin?`<div class="ex-py">${t.pinyin}</div>`:``)+`</div>`;
+  }
+  let actionHTML="";
+  if(isDone){
+    actionHTML=`<div class="done-banner">✓ 已完成 Done!</div>
+      <button class="undo" onclick="undoTask(${idx})">取消打卡 · Undo</button>`;
+  } else if(isUpload){
+    actionHTML=`
+      <label class="file-btn" for="file${idx}">Choose file · 选择文件</label>
+      <input type="file" id="file${idx}" style="display:none" onchange="pickFile(${idx})">
+      <div class="fileName" id="fname${idx}">No file selected</div>
+      <button class="btn" id="btn${idx}" onclick="submitUpload(${idx})">Submit &amp; Check in · 提交打卡</button>`;
+  } else {
+    actionHTML=`
+      <textarea class="answer" id="ans${idx}" placeholder="Type your answer here… 在这里打字回答"></textarea>
+      <button class="btn" id="btn${idx}" onclick="submitText(${idx})">Submit &amp; Check in · 提交打卡</button>`;
+  }
+  return `<div class="taskcard ${isDone?'done':''}">
+    <div class="tc-top">
+      <div class="tc-glyph">${ICONS[day]||""}</div>
+      <div>
+        <div class="tc-daytag" style="color:${DAYCOLOR[day]}">${day} · ${DAYCN[day]||""}</div>
+        <div class="tc-title">${t.title||""}</div>
+      </div>
+    </div>
+    <div class="tc-desc">${t.desc||""}</div>
+    ${exampleHTML}
+    <span class="typetag ${isUpload?'upload':'text'}">${isUpload?'📎 Upload file 上传':'⌨️ Type answer 打字'}</span>
+    <div class="tc-action">${actionHTML}</div>
+  </div>`;
+}
+
+function renderTask(){
+  const area=document.getElementById('taskArea');
+  const today=todayIdx();
+  const done=getDone();
+  if(!TASKS.length){ area.innerHTML=`<div class="taskcard"><div class="tc-desc">还没有任务，请老师在表格里添加。</div></div>`; return; }
+  const safeToday=Math.min(today,TASKS.length-1);
+
+  let html="";
+  // 展开时：先显示之前的天
+  if(showPast && safeToday>0){
+    for(let i=0;i<safeToday;i++) html+=cardHTML(TASKS[i],i,done);
+  }
+  // 今天
+  html+=cardHTML(TASKS[safeToday],safeToday,done);
+  // 展开/收起按钮
+  if(safeToday>0){
+    html+=`<div class="pastbtn" onclick="togglePast()">${showPast?"▲ Hide previous days · 收起":"▼ Catch up on earlier days · 查看前几天"}</div>`;
+  }
+  // 明日预告
+  if(safeToday<TASKS.length-1){
+    html+=`<div class="peek">🔮 Tomorrow's task unlocks at midnight… <b>?????</b></div>`;
+  } else {
+    html+=`<div class="peek">🎉 That's the whole week — nice work!</div>`;
+  }
+  area.innerHTML=html;
+}
+function togglePast(){ showPast=!showPast; renderTask(); }
+
+/* 上传型提交 */
+const fileStore={};
+function pickFile(idx){
+  const f=document.getElementById('file'+idx).files[0];
+  if(!f)return;
+  document.getElementById('fname'+idx).textContent="Selected: "+f.name;
+  fileStore[idx]=f;   // 直接存 File 对象，提交时上传到 Storage
+}
+function submitUpload(idx){
+  const f=fileStore[idx];
+  if(!f){ toast("Please choose a file first · 请先选文件"); return; }
+  const t=TASKS[idx];
+  const btn=document.getElementById('btn'+idx);
+  btn.disabled=true; btn.textContent="Uploading… 上传中";
+  // 先上传文件到 Storage，拿到网址，再写一条打卡记录
+  uploadFile(f)
+    .then(url=>rpc("submit_checkin",{p_username:currentUsername,p_day:t.day,p_task_title:cleanText(t.title),p_type:"upload",p_text_answer:"",p_file_url:url}))
+    .then(res=>{ if(!res||!res.ok) throw new Error("submit failed"); markDone(idx); })
+    .catch(()=>{ btn.disabled=false; btn.textContent="Submit & Check in · 提交打卡"; toast("Upload failed, please retry · 上传失败，请重试"); });
+}
+
+/* 打字型提交 */
+function submitText(idx){
+  const val=document.getElementById('ans'+idx).value.trim();
+  if(!val){ toast("Please type your answer · 请先打字回答"); return; }
+  const t=TASKS[idx];
+  const btn=document.getElementById('btn'+idx);
+  btn.disabled=true; btn.textContent="Submitting… 提交中";
+  rpc("submit_checkin",{p_username:currentUsername,p_day:t.day,p_task_title:cleanText(t.title),p_type:"text",p_text_answer:val,p_file_url:""})
+    .then(res=>{ if(!res||!res.ok) throw new Error("submit failed"); markDone(idx); })
+    .catch(()=>{ btn.disabled=false; btn.textContent="Submit & Check in · 提交打卡"; toast("Submit failed, please retry · 提交失败，请重试"); });
+}
+
+function markDone(idx){
+  const done=getDone(); done[idx]=true; setDone(done);
+  renderTask();
+  celebrate(Object.keys(done).length);
+}
+function undoTask(idx){
+  const done=getDone(); delete done[idx]; setDone(done);
+  renderTask();
+  toast("Unchecked · 已取消");
+}
+
+function cleanText(s){ return String(s||"").replace(/<[^>]+>/g,''); }
+
+/* 庆祝 */
+function celebrate(streak){
+  const c=CHEERS[Math.floor(Math.random()*CHEERS.length)];
+  document.getElementById('celSeal').textContent=c.seal;
+  document.getElementById('celZh').textContent="恭喜你打卡成功！";
+  document.getElementById('celEn').textContent=c.en;
+  document.getElementById('celStreak').textContent="🔥 "+streak+" days done this week";
+  document.getElementById('celebrate').classList.add('show');
+  shootConfetti();
+}
+function closeCelebrate(){ document.getElementById('celebrate').classList.remove('show'); }
+function shootConfetti(){
+  const colors=["#e8622d","#2e8fb0","#5a8a4a","#e8b33d","#2a2622"];
+  for(let i=0;i<60;i++){
+    const c=document.createElement('div');
+    c.className="confetti";
+    c.style.left=Math.random()*100+"vw";
+    c.style.background=colors[Math.floor(Math.random()*colors.length)];
+    c.style.transform="rotate("+Math.random()*360+"deg)";
+    const dur=2+Math.random()*1.5;
+    c.style.transition=`top ${dur}s ease-in, transform ${dur}s linear, opacity ${dur}s`;
+    document.body.appendChild(c);
+    requestAnimationFrame(()=>{ c.style.top=(100+Math.random()*20)+"vh"; c.style.transform="rotate("+(720+Math.random()*360)+"deg)"; c.style.opacity="0"; });
+    setTimeout(()=>c.remove(),dur*1000+200);
+  }
+}
+
+let toastTimer;
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+boot();
+</script>
+</body>
+</html>

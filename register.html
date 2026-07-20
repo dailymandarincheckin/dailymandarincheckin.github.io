@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cai Laoshi · Join / 注册</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#fbf3e4;--cream2:#f5e9d4;--ink:#2a2622;--sub:#8c8175;
+    --persimmon:#e8622d;--cyan:#2e8fb0;--bamboo:#5a8a4a;--glaze:#e8b33d;
+    --line:#e6d8bf;--card:#fffaf0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  @media (pointer:fine){ *{cursor:none;} }
+  body{
+    font-family:"Poppins","Noto Sans SC",-apple-system,sans-serif;color:var(--ink);
+    background-color:var(--cream);
+    background-image:
+      radial-gradient(circle at 12% 18%, rgba(232,98,45,.06) 0 22%, transparent 22%),
+      radial-gradient(circle at 88% 8%, rgba(46,143,176,.06) 0 18%, transparent 18%),
+      radial-gradient(circle at 78% 92%, rgba(90,138,74,.05) 0 20%, transparent 20%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)' opacity='0.04'/%3E%3C/svg%3E");
+    -webkit-font-smoothing:antialiased;overflow-x:hidden;min-height:100vh;
+  }
+  .wrap{max-width:480px;margin:0 auto;padding:44px 22px 80px;min-height:100vh;display:flex;flex-direction:column;justify-content:center;}
+
+  #brush{position:fixed;top:0;left:0;width:34px;height:34px;pointer-events:none;z-index:9999;
+    transform:translate(-50%,-50%);transition:transform .08s ease-out;will-change:transform;}
+  @media (pointer:coarse){ #brush{display:none;} }
+  #brush.press{transform:translate(-50%,-40%) scale(.8) rotate(-8deg);}
+
+  .masthead{text-align:center;margin-bottom:24px;}
+  .masthead .stamp{display:inline-block;background:var(--persimmon);color:#fff;border:2.5px solid var(--ink);
+    border-radius:14px;padding:6px 16px;font-family:"Poppins",sans-serif;font-weight:800;font-size:13px;
+    letter-spacing:2px;transform:rotate(-3deg);box-shadow:3px 3px 0 var(--ink);margin-bottom:16px;}
+  .masthead h2{font-family:"Poppins",sans-serif;font-weight:800;font-size:30px;letter-spacing:-.5px;line-height:1.1;}
+  .masthead h2 .cn{font-weight:900;color:var(--persimmon);}
+  .masthead p{color:var(--sub);font-size:13.5px;margin-top:8px;line-height:1.6;}
+
+  .card{background:var(--card);border:2.5px solid var(--ink);border-radius:22px;padding:28px 24px;
+    box-shadow:6px 6px 0 rgba(42,38,34,.14);animation:tileIn .45s ease both;}
+  @keyframes tileIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+
+  .field{margin-bottom:20px;}
+  .field label{display:block;font-family:"Poppins",sans-serif;font-weight:700;font-size:12px;
+    letter-spacing:1.5px;text-transform:uppercase;color:var(--sub);margin-bottom:8px;}
+  .field input{width:100%;padding:14px 16px;border:2.5px solid var(--ink);border-radius:14px;
+    font-size:16px;font-family:"Noto Sans SC",sans-serif;background:var(--cream);outline:none;
+    transition:.15s;color:var(--ink);box-shadow:inset 0 0 0 rgba(0,0,0,0);}
+  .field input:focus{background:#fff;box-shadow:3px 3px 0 var(--cyan);}
+  .field .hint{font-size:12px;color:var(--sub);margin-top:6px;line-height:1.5;}
+
+  .btn{width:100%;margin-top:6px;padding:16px;border:2.5px solid var(--ink);border-radius:14px;
+    background:var(--bamboo);color:#fff;font-size:16px;font-weight:700;letter-spacing:1px;
+    font-family:"Poppins",sans-serif;transition:.12s;box-shadow:4px 4px 0 var(--ink);}
+  .btn:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--ink);background:#6a9a58;}
+  .btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink);}
+  .btn:disabled{opacity:.55;box-shadow:4px 4px 0 var(--ink);transform:none;}
+
+  .err{display:none;margin-top:14px;padding:12px 14px;border-radius:12px;background:rgba(232,98,45,.12);
+    border:2px solid var(--persimmon);color:#b8431c;font-size:13.5px;font-weight:600;line-height:1.5;}
+  .err.show{display:block;animation:shake .35s;}
+  @keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-6px);}75%{transform:translateX(6px);}}
+
+  /* ===== 成功结果 ===== */
+  #result{display:none;}
+  #result.show{display:block;}
+  .result-card{background:var(--card);border:2.5px solid var(--ink);border-radius:22px;padding:30px 24px;
+    box-shadow:6px 6px 0 rgba(90,138,74,.28);border-color:var(--bamboo);text-align:center;
+    animation:bounceIn .55s cubic-bezier(.2,1.5,.35,1);}
+  @keyframes bounceIn{0%{opacity:0;transform:scale(.6) translateY(24px);}60%{transform:scale(1.04);}100%{opacity:1;transform:scale(1);}}
+  .result-seal{width:80px;height:80px;margin:0 auto 16px;background:var(--bamboo);border:3px solid var(--ink);
+    border-radius:20px;display:flex;align-items:center;justify-content:center;transform:rotate(-6deg);
+    box-shadow:4px 4px 0 var(--ink);}
+  .result-seal span{font-weight:900;font-size:40px;color:#fff;}
+  .result-card h3{font-weight:900;font-size:22px;margin-bottom:4px;}
+  .result-card .sub{color:var(--sub);font-size:13.5px;margin-bottom:20px;font-weight:600;}
+  .codebox{background:var(--cream2);border:2.5px dashed var(--ink);border-radius:14px;padding:16px;margin-bottom:8px;}
+  .codebox .lbl{font-size:11px;letter-spacing:2px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:6px;}
+  .codebox .code{font-family:"Poppins",sans-serif;font-weight:800;font-size:26px;color:var(--persimmon);letter-spacing:1px;word-break:break-all;}
+  .copybtn{display:inline-block;background:var(--cyan);border:2.5px solid var(--ink);color:#fff;
+    padding:12px 22px;border-radius:12px;font-family:"Poppins",sans-serif;font-weight:700;font-size:14px;
+    box-shadow:3px 3px 0 var(--ink);transition:.12s;margin-top:14px;}
+  .copybtn:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--ink);}
+  .result-note{font-size:12.5px;color:var(--sub);line-height:1.6;margin-top:18px;
+    border-top:2px dashed var(--line);padding-top:16px;}
+
+  .confetti{position:fixed;top:-20px;width:12px;height:12px;z-index:1001;pointer-events:none;border-radius:2px;}
+
+  .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(90px);
+    background:var(--ink);color:#fff;padding:13px 24px;border-radius:30px;font-size:14px;font-weight:600;letter-spacing:.5px;
+    opacity:0;transition:.3s cubic-bezier(.2,1.3,.4,1);z-index:99;border:2.5px solid var(--glaze);}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<svg id="brush" viewBox="0 0 34 34" fill="none">
+  <path d="M17 3 C 20 10, 21 15, 18 22 C 17 25, 16 25, 15 22 C 13 15, 14 10, 17 3 Z" fill="#2a2622"/>
+  <path d="M17 3 C 19 9, 20 14, 18 20" stroke="#e8622d" stroke-width="1.2" stroke-linecap="round"/>
+  <circle cx="16.5" cy="24" r="2.4" fill="#e8622d"/>
+</svg>
+
+<div class="wrap">
+
+  <!-- 注册表单 -->
+  <div id="form">
+    <div class="masthead">
+      <div class="stamp">CAI LAOSHI</div>
+      <h2>Join the <span class="cn">打卡</span> Club</h2>
+      <p>Get your own login code and start your daily Chinese check-in.<br>拿到你的专属登录码，开始每日中文打卡。</p>
+    </div>
+
+    <div class="card">
+      <div class="field">
+        <label for="name">Your name · 你的名字</label>
+        <input id="name" type="text" autocomplete="off" placeholder="e.g. Ashraf" maxlength="30">
+        <div class="hint">用英文名字，会变成你的登录码，例如 Ashraf → ashraf2048</div>
+      </div>
+      <div class="field">
+        <label for="code">Class code · 班级暗号</label>
+        <input id="code" type="text" autocomplete="off" placeholder="Ask your teacher" maxlength="30">
+        <div class="hint">老师给你的暗号（不填对不能注册哦）</div>
+      </div>
+      <button class="btn" id="goBtn" onclick="doRegister()">Get my code · 生成登录码</button>
+      <div class="err" id="err"></div>
+    </div>
+  </div>
+
+  <!-- 成功结果 -->
+  <div id="result">
+    <div class="result-card">
+      <div class="result-seal"><span>成</span></div>
+      <h3>Welcome, <span id="rName"></span>! 🎉</h3>
+      <div class="sub">你的账号建好了 · Your account is ready</div>
+
+      <div class="codebox">
+        <div class="lbl">Your login code · 你的登录码</div>
+        <div class="code" id="rCode"></div>
+      </div>
+      <a class="copybtn" id="copyLink" onclick="copyLink()">🔗 Copy my check-in link · 复制打卡链接</a>
+
+      <div class="result-note">
+        📌 <b>请把这个链接存进手机</b>（加书签或发给自己）。<br>
+        以后打开这个链接就能直接打卡，不用密码。<br>
+        Save this link — open it anytime to check in. No password needed.
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===== 配置 ===== */
+const SUPABASE_URL = "https://qgtlqiszzgdkjbfpejef.supabase.co";
+const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFndGxxaXN6emdka2piZnBlamVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ1MjI4MzAsImV4cCI6MjEwMDA5ODgzMH0.nPh9EVcu7y7gyhiF2RpplU49rUhCv_pmy-lvuCfLYXM";
+// T3 部署后，如需固定打卡页网址可在这里填；留空则自动用同目录的 checkin.html
+const CHECKIN_BASE = "";
+
+/* 光标 */
+const brush=document.getElementById('brush');
+let bx=innerWidth/2,by=innerHeight/2,tx=bx,ty=by;
+addEventListener('mousemove',e=>{tx=e.clientX;ty=e.clientY;});
+(function anim(){bx+=(tx-bx)*.35;by+=(ty-by)*.35;brush.style.left=bx+'px';brush.style.top=by+'px';requestAnimationFrame(anim);})();
+addEventListener('mousedown',()=>brush.classList.add('press'));
+addEventListener('mouseup',()=>brush.classList.remove('press'));
+addEventListener('mouseover',e=>{if(e.target.closest('button,input,a,.copybtn'))brush.classList.add('press');});
+addEventListener('mouseout',e=>{if(e.target.closest('button,input,a,.copybtn'))brush.classList.remove('press');});
+
+let myLink="";
+
+function showErr(msg){ const e=document.getElementById('err'); e.textContent=msg; e.classList.add('show'); }
+function hideErr(){ document.getElementById('err').classList.remove('show'); }
+
+async function doRegister(){
+  hideErr();
+  const name=document.getElementById('name').value.trim();
+  const code=document.getElementById('code').value.trim();
+  if(!name){ showErr("请先填你的名字 · Please enter your name."); return; }
+  if(!code){ showErr("请填班级暗号 · Please enter the class code."); return; }
+
+  const btn=document.getElementById('goBtn');
+  btn.disabled=true; btn.textContent="Creating… 生成中";
+
+  try{
+    const res=await fetch(SUPABASE_URL+"/rest/v1/rpc/register_student",{
+      method:"POST",
+      headers:{ "apikey":ANON, "Authorization":"Bearer "+ANON, "Content-Type":"application/json" },
+      body:JSON.stringify({ p_display_name:name, p_class_code:code })
+    });
+    const raw=await res.text();
+    if(!res.ok){
+      let m=raw;
+      try{ m=(JSON.parse(raw).message)||raw; }catch(e){}
+      if(/BAD_CODE/.test(m)){ showErr("暗号不对，请找老师确认 · Wrong class code. Ask your teacher."); }
+      else if(/NO_NAME/.test(m)){ showErr("名字不能为空 · Name can't be empty."); }
+      else{ showErr("注册失败，请稍后再试 · Something went wrong, please retry."); }
+      btn.disabled=false; btn.textContent="Get my code · 生成登录码";
+      return;
+    }
+    // 成功：返回的是 username 字符串
+    let username=raw.trim().replace(/^"|"$/g,'');
+    showResult(name, username);
+  }catch(err){
+    showErr("连不上服务器，请检查网络 · Can't reach server, check your internet.");
+    btn.disabled=false; btn.textContent="Get my code · 生成登录码";
+  }
+}
+
+function buildLink(username){
+  if(CHECKIN_BASE){
+    return CHECKIN_BASE + (CHECKIN_BASE.includes('?')?'&':'?') + "u=" + encodeURIComponent(username);
+  }
+  // 同目录的 checkin.html
+  const base=location.href.replace(/register\.html.*$/i,'').replace(/[^/]*$/,'');
+  return base + "checkin.html?u=" + encodeURIComponent(username);
+}
+
+function showResult(name, username){
+  document.getElementById('rName').textContent=name;
+  document.getElementById('rCode').textContent=username;
+  myLink=buildLink(username);
+  document.getElementById('form').style.display='none';
+  document.getElementById('result').classList.add('show');
+  shootConfetti();
+}
+
+function copyLink(){
+  if(!myLink) return;
+  navigator.clipboard.writeText(myLink).then(
+    ()=>toast("Link copied! 链接已复制 ✓"),
+    ()=>{
+      // 退路：用 prompt 让用户手动复制
+      window.prompt("复制这个链接 · Copy this link:", myLink);
+    }
+  );
+}
+
+function shootConfetti(){
+  const colors=["#e8622d","#2e8fb0","#5a8a4a","#e8b33d","#2a2622"];
+  for(let i=0;i<60;i++){
+    const c=document.createElement('div');
+    c.className="confetti";
+    c.style.left=Math.random()*100+"vw";
+    c.style.background=colors[Math.floor(Math.random()*colors.length)];
+    c.style.transform="rotate("+Math.random()*360+"deg)";
+    const dur=2+Math.random()*1.5;
+    c.style.transition=`top ${dur}s ease-in, transform ${dur}s linear, opacity ${dur}s`;
+    document.body.appendChild(c);
+    requestAnimationFrame(()=>{ c.style.top=(100+Math.random()*20)+"vh"; c.style.transform="rotate("+(720+Math.random()*360)+"deg)"; c.style.opacity="0"; });
+    setTimeout(()=>c.remove(),dur*1000+200);
+  }
+}
+
+let toastTimer;
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+/* 回车提交 */
+document.getElementById('code').addEventListener('keydown',e=>{ if(e.key==='Enter') doRegister(); });
+document.getElementById('name').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('code').focus(); });
+</script>
+</body>
+</html>
