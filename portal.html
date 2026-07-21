@@ -158,7 +158,7 @@
       <button class="tab active" data-tab="progress" onclick="switchTab('progress')">📊 进度</button>
       <button class="tab" data-tab="review" onclick="switchTab('review')">✍️ 批改</button>
       <button class="tab" data-tab="students" onclick="switchTab('students')">👥 学生</button>
-      <button class="tab" data-tab="tasks" onclick="switchTab('tasks')">📝 作业</button>
+      <button class="tab" data-tab="tasks" onclick="switchTab('tasks')">📝 套餐</button>
     </div>
 
     <!-- 进度 -->
@@ -189,10 +189,26 @@
       <div id="studentsBody"><div class="spin"></div></div>
     </div>
 
-    <!-- 作业 -->
+    <!-- 套餐/作业 -->
     <div class="panel" id="panel-tasks">
-      <div class="sechead"><span class="dot"></span><span>Weekly tasks · 每周作业内容</span></div>
-      <p class="muted" style="padding:0 2px 14px;">改完点每条的「保存」，学生端下次打开就更新。</p>
+      <div class="sechead"><span class="dot"></span><span>Tracks &amp; tasks · 套餐与作业</span></div>
+      <div class="addbox">
+        <select id="trackSel" onchange="renderTasksTab()" style="flex:1;min-width:200px;">
+          <option value="">默认（通用套餐）</option>
+        </select>
+        <button class="btn cyan sm" onclick="toggleNewTrack()">➕ 新建套餐</button>
+      </div>
+      <div class="newcode" id="newTrackBox">
+        <div style="margin-bottom:8px;font-weight:700;">新建套餐</div>
+        <input id="ntName" placeholder="套餐名字，如：口语为主·初级" style="margin-bottom:8px;">
+        <div class="grid2" style="margin-bottom:8px;">
+          <select id="ntType"></select>
+          <select id="ntLevel"></select>
+        </div>
+        <button class="btn bamboo sm" onclick="createTrack()">建这个套餐</button>
+        <div style="font-size:12px;color:var(--sub);margin-top:8px;">会先复制一份默认作业当底子，你再改。</div>
+      </div>
+      <p class="muted" style="padding:0 2px 14px;" id="tasksHint">改完点每条「保存」，学生端下次打开就更新。</p>
       <div id="tasksBody"><div class="spin"></div></div>
     </div>
 
@@ -211,10 +227,13 @@ const DAYS=["MON","TUE","WED","THU","FRI","SAT","SUN"];
 const DAYCN={MON:"周一",TUE:"周二",WED:"周三",THU:"周四",FRI:"周五",SAT:"周六",SUN:"周日"};
 let SUBS=[];        // 提交（含学生名 + 反馈）
 let STUDENTS=[];    // 学生
+let TRACKS=[];      // 套餐
+const TYPE_LABEL={oral:"纯口语",oral_plus:"口语为主",full:"综合",hsk:"HSK应试",business:"商务职场"};
+const LEVEL_LABEL={zero:"零基础",beginner:"初级",intermediate:"中级",advanced:"高级"};
 
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');
   clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);}
-function esc(s){return String(s==null?"":s).replace(/[<>&]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]));}
+function esc(s){return String(s==null?"":s).replace(/[<>&"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;"}[c]));}
 
 /* ---------- 登录 ---------- */
 async function doLogin(){
@@ -246,7 +265,23 @@ function switchTab(name){
 }
 
 /* ---------- 加载数据 ---------- */
-async function loadAll(){ await Promise.all([loadStudents(), loadSubs(), loadTasks()]); }
+async function loadAll(){
+  await loadTracks();
+  await Promise.all([loadStudents(), loadSubs()]);
+}
+async function loadTracks(){
+  const {data,error}=await sb.from('tracks').select('*').order('created_at',{ascending:true});
+  if(error){toast("读套餐失败");return;}
+  TRACKS=(data||[]).filter(t=>t.active!==false);
+  fillTrackSelector(); renderTasksTab(); renderStudents();
+}
+function trackLabel(t){ return (t.name||'套餐')+' · '+(TYPE_LABEL[t.type]||t.type||'?')+'/'+(LEVEL_LABEL[t.level]||t.level||'?'); }
+function fillTrackSelector(){
+  const sel=document.getElementById('trackSel'); if(!sel) return;
+  const cur=sel.value;
+  sel.innerHTML='<option value="">默认（通用套餐）</option>'+TRACKS.map(t=>`<option value="${t.id}">${esc(trackLabel(t))}</option>`).join('');
+  sel.value=cur;
+}
 
 function weekStart(){const d=new Date();const wd=(d.getDay()+6)%7;d.setHours(0,0,0,0);d.setDate(d.getDate()-wd);return d;}
 function todayCode(){return DAYS[(new Date().getDay()+6)%7];}
@@ -333,16 +368,31 @@ async function saveFeedback(subId){
 
 /* ---------- 学生 ---------- */
 function renderStudents(){
-  const box=document.getElementById('studentsBody');
+  const box=document.getElementById('studentsBody'); if(!box) return;
   if(!STUDENTS.length){box.innerHTML='<div class="muted">还没有学生。用上面加一个。</div>';return;}
+  const trackOpts=(cur)=>'<option value="">默认（通用）</option>'+TRACKS.map(t=>`<option value="${t.id}" ${cur===t.id?'selected':''}>${esc(trackLabel(t))}</option>`).join('');
   box.innerHTML=STUDENTS.map(s=>{
     const active=s.active!==false;
+    const self=(s.stu_type||s.stu_level)?((TYPE_LABEL[s.stu_type]||s.stu_type||'')+' '+(LEVEL_LABEL[s.stu_level]||s.stu_level||'')).trim():'—';
     return `<div class="stud-row ${active?'':'inactive'}">
       <div class="avatar">${esc((s.display_name||s.username||'?')[0].toUpperCase())}</div>
-      <div class="info"><div style="font-weight:700;">${esc(s.display_name||'')}</div><div class="u">${esc(s.username)}${active?'':' · 已停用'}</div></div>
+      <div class="info">
+        <div style="font-weight:700;">${esc(s.display_name||'')}</div>
+        <div class="u">${esc(s.username)} · 自选：${esc(self)}${active?'':' · 已停用'}</div>
+        <div style="margin-top:6px;display:flex;align-items:center;gap:6px;">
+          <span style="font-size:12px;color:var(--sub);">套餐</span>
+          <select onchange="assignTrack('${s.id}',this.value)" style="padding:7px 10px;font-size:13px;max-width:100%;">${trackOpts(s.track_id||"")}</select>
+        </div>
+      </div>
       <button class="btn ${active?'danger':'bamboo'} sm" onclick="toggleStudent('${s.id}',${active})">${active?'停用':'启用'}</button>
     </div>`;
   }).join('');
+}
+async function assignTrack(id,trackId){
+  const {error}=await sb.from('students').update({track_id:trackId||null}).eq('id',id);
+  if(error){toast("改套餐失败："+error.message);return;}
+  toast("已改套餐 ✓");
+  const s=STUDENTS.find(x=>x.id===id); if(s) s.track_id=trackId||null;
 }
 async function toggleStudent(id,active){
   const {error}=await sb.from('students').update({active:!active}).eq('id',id);
@@ -363,32 +413,83 @@ async function addStudent(){
   loadStudents();
 }
 
-/* ---------- 作业 ---------- */
-async function loadTasks(){
-  const {data,error}=await sb.from('task_templates').select('*');
-  if(error){toast("读作业失败");return;}
-  const order={MON:1,TUE:2,WED:3,THU:4,FRI:5,SAT:6,SUN:7};
-  const rows=(data||[]).sort((a,b)=>(order[a.day]||9)-(order[b.day]||9));
-  const box=document.getElementById('tasksBody');
-  box.innerHTML=rows.map(t=>`
-    <div class="task-row">
-      <div class="dtag">${esc(t.day)} · ${DAYCN[t.day]||''}</div>
-      <div class="grid2">
-        <div><label>标题 Title</label><input id="t_title_${t.id}" value="${esc(t.title)}"></div>
-        <div><label>类型 Type</label><select id="t_type_${t.id}">
-          <option value="upload" ${t.type==='upload'?'selected':''}>upload · 上传录音/照片</option>
-          <option value="text" ${t.type==='text'?'selected':''}>text · 打字回答</option>
-        </select></div>
-      </div>
-      <label>说明 Description</label><textarea id="t_desc_${t.id}">${esc(t.description)}</textarea>
-      <div class="grid2" style="margin-top:10px;">
-        <div><label>例句 Example (可空)</label><input id="t_ex_${t.id}" value="${esc(t.example)}"></div>
-        <div><label>拼音 Pinyin (可空)</label><input id="t_py_${t.id}" value="${esc(t.pinyin)}"></div>
-      </div>
-      <div class="rowend"><button class="btn sm" onclick="saveTask('${t.id}')">💾 保存这条</button></div>
-    </div>`).join('');
+/* ---------- 套餐 / 作业 ---------- */
+function toggleNewTrack(){
+  const b=document.getElementById('newTrackBox');
+  if(!b.classList.contains('show')){
+    document.getElementById('ntType').innerHTML='<option value="">选类型</option>'+Object.keys(TYPE_LABEL).map(k=>`<option value="${k}">${TYPE_LABEL[k]}</option>`).join('');
+    document.getElementById('ntLevel').innerHTML='<option value="">选水平</option>'+Object.keys(LEVEL_LABEL).map(k=>`<option value="${k}">${LEVEL_LABEL[k]}</option>`).join('');
+  }
+  b.classList.toggle('show');
 }
-async function saveTask(id){
+async function createTrack(){
+  const name=document.getElementById('ntName').value.trim();
+  const type=document.getElementById('ntType').value;
+  const level=document.getElementById('ntLevel').value;
+  if(!name||!type||!level){ toast("请填名字、类型、水平"); return; }
+  const {data,error}=await sb.rpc('admin_create_track',{p_name:name,p_type:type,p_level:level});
+  if(error){toast("建失败："+error.message);return;}
+  toast("套餐建好了 ✓");
+  document.getElementById('newTrackBox').classList.remove('show');
+  document.getElementById('ntName').value="";
+  await loadTracks();
+  const sel=document.getElementById('trackSel'); sel.value=data; renderTasksTab();
+}
+async function deleteTrack(id){
+  if(!confirm("确定删除这个套餐吗？分到它的学生会回到默认套餐。")) return;
+  const {error}=await sb.from('tracks').delete().eq('id',id);
+  if(error){toast("删除失败："+error.message);return;}
+  toast("已删除");
+  document.getElementById('trackSel').value="";
+  await loadTracks(); renderTasksTab();
+}
+async function renderTasksTab(){
+  const sel=document.getElementById('trackSel'); if(!sel) return;
+  const trackId=sel.value;
+  const box=document.getElementById('tasksBody');
+  const hint=document.getElementById('tasksHint');
+  box.innerHTML='<div class="spin"></div>';
+  const order={MON:1,TUE:2,WED:3,THU:4,FRI:5,SAT:6,SUN:7};
+  let rows, header="";
+  const isTrack=!!trackId;
+  if(isTrack){
+    const {data,error}=await sb.from('track_tasks').select('*').eq('track_id',trackId);
+    if(error){toast("读作业失败");return;}
+    rows=(data||[]).sort((a,b)=>(order[a.day]||9)-(order[b.day]||9));
+    const t=TRACKS.find(x=>x.id===trackId);
+    header=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+      <div style="font-weight:700;">正在编辑套餐：${esc(t?trackLabel(t):'')}</div>
+      <button class="btn danger sm" onclick="deleteTrack('${trackId}')" style="margin-left:auto;">删除此套餐</button></div>`;
+    hint.textContent="改完点「保存」。某天不想让学生做，把「这天开」取消即可。";
+  } else {
+    const {data,error}=await sb.from('task_templates').select('*');
+    if(error){toast("读作业失败");return;}
+    rows=(data||[]).sort((a,b)=>(order[a.day]||9)-(order[b.day]||9));
+    hint.textContent="这是默认（通用）套餐：没分配套餐的学生用它。改完点「保存」。";
+  }
+  box.innerHTML=header+rows.map(t=>taskRowHTML(t,isTrack)).join('');
+}
+function taskRowHTML(t,isTrack){
+  const activeToggle=isTrack?`<label style="display:inline;margin-left:12px;font-size:13px;color:var(--sub);">
+      <input type="checkbox" id="t_act_${t.id}" style="width:auto;" ${t.active!==false?'checked':''}> 这天开</label>`:'';
+  return `<div class="task-row">
+    <div class="dtag">${esc(t.day)} · ${DAYCN[t.day]||''}</div>${activeToggle}
+    <div class="grid2">
+      <div><label>标题 Title</label><input id="t_title_${t.id}" value="${esc(t.title)}"></div>
+      <div><label>类型 Type</label><select id="t_type_${t.id}">
+        <option value="upload" ${t.type==='upload'?'selected':''}>upload · 上传录音/照片</option>
+        <option value="text" ${t.type==='text'?'selected':''}>text · 打字回答</option>
+      </select></div>
+    </div>
+    <label>说明 Description</label><textarea id="t_desc_${t.id}">${esc(t.description)}</textarea>
+    <div class="grid2" style="margin-top:10px;">
+      <div><label>例句 Example (可空)</label><input id="t_ex_${t.id}" value="${esc(t.example)}"></div>
+      <div><label>拼音 Pinyin (可空)</label><input id="t_py_${t.id}" value="${esc(t.pinyin)}"></div>
+    </div>
+    <div class="rowend"><button class="btn sm" onclick="saveTask('${t.id}',${isTrack})">💾 保存这条</button></div>
+  </div>`;
+}
+async function saveTask(id,isTrack){
   const payload={
     title:document.getElementById('t_title_'+id).value.trim(),
     type:document.getElementById('t_type_'+id).value,
@@ -396,7 +497,9 @@ async function saveTask(id){
     example:document.getElementById('t_ex_'+id).value.trim()||null,
     pinyin:document.getElementById('t_py_'+id).value.trim()||null
   };
-  const {error}=await sb.from('task_templates').update(payload).eq('id',id);
+  if(isTrack){ const act=document.getElementById('t_act_'+id); if(act) payload.active=act.checked; }
+  const table=isTrack?'track_tasks':'task_templates';
+  const {error}=await sb.from(table).update(payload).eq('id',id);
   if(error){toast("保存失败："+error.message);return;}
   toast("已保存 ✓");
 }

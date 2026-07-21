@@ -47,10 +47,10 @@
   .field{margin-bottom:20px;}
   .field label{display:block;font-family:"Poppins",sans-serif;font-weight:700;font-size:12px;
     letter-spacing:1.5px;text-transform:uppercase;color:var(--sub);margin-bottom:8px;}
-  .field input{width:100%;padding:14px 16px;border:2.5px solid var(--ink);border-radius:14px;
+  .field input,.field select{width:100%;padding:14px 16px;border:2.5px solid var(--ink);border-radius:14px;
     font-size:16px;font-family:"Noto Sans SC",sans-serif;background:var(--cream);outline:none;
     transition:.15s;color:var(--ink);box-shadow:inset 0 0 0 rgba(0,0,0,0);}
-  .field input:focus{background:#fff;box-shadow:3px 3px 0 var(--cyan);}
+  .field input:focus,.field select:focus{background:#fff;box-shadow:3px 3px 0 var(--cyan);}
   .field .hint{font-size:12px;color:var(--sub);margin-top:6px;line-height:1.5;}
 
   .btn{width:100%;margin-top:6px;padding:16px;border:2.5px solid var(--ink);border-radius:14px;
@@ -125,6 +125,27 @@
         <input id="code" type="text" autocomplete="off" placeholder="Ask your teacher" maxlength="30">
         <div class="hint">老师给你的暗号（不填对不能注册哦）</div>
       </div>
+      <div class="field">
+        <label for="stype">I want to learn · 我想学</label>
+        <select id="stype">
+          <option value="">— choose 选一个 —</option>
+          <option value="oral">🗣️ Speaking only · 纯口语（不学汉字）</option>
+          <option value="oral_plus">🗣️📝 Mostly speaking · 口语为主（带一点汉字）</option>
+          <option value="full">📚 All skills · 综合（听说读写）</option>
+          <option value="hsk">🎯 HSK exam · 应试备考</option>
+          <option value="business">💼 Business · 商务职场</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="slevel">My level · 我的水平</label>
+        <select id="slevel">
+          <option value="">— choose 选一个 —</option>
+          <option value="zero">Absolute beginner · 零基础</option>
+          <option value="beginner">Beginner · 初级 (HSK 1-2)</option>
+          <option value="intermediate">Intermediate · 中级 (HSK 3-4)</option>
+          <option value="advanced">Advanced · 高级 (HSK 5-6)</option>
+        </select>
+      </div>
       <button class="btn" id="goBtn" onclick="doRegister()">Get my code · 生成登录码</button>
       <div class="err" id="err"></div>
     </div>
@@ -181,8 +202,12 @@ async function doRegister(){
   hideErr();
   const name=document.getElementById('name').value.trim();
   const code=document.getElementById('code').value.trim();
+  const stype=document.getElementById('stype').value;
+  const slevel=document.getElementById('slevel').value;
   if(!name){ showErr("请先填你的名字 · Please enter your name."); return; }
   if(!code){ showErr("请填班级暗号 · Please enter the class code."); return; }
+  if(!stype){ showErr("请选你想学什么 · Please choose what you want to learn."); return; }
+  if(!slevel){ showErr("请选你的水平 · Please choose your level."); return; }
 
   const btn=document.getElementById('goBtn');
   btn.disabled=true; btn.textContent="Creating… 生成中";
@@ -191,7 +216,7 @@ async function doRegister(){
     const res=await fetch(SUPABASE_URL+"/rest/v1/rpc/register_student",{
       method:"POST",
       headers:{ "apikey":ANON, "Authorization":"Bearer "+ANON, "Content-Type":"application/json" },
-      body:JSON.stringify({ p_display_name:name, p_class_code:code })
+      body:JSON.stringify({ p_display_name:name, p_class_code:code, p_type:stype, p_level:slevel })
     });
     const raw=await res.text();
     if(!res.ok){

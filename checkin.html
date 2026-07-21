@@ -304,6 +304,8 @@ function startApp(){
 }
 
 function todayIdx(){ let d=new Date().getDay(); return (d+6)%7; } // 0=MON..6=SUN
+function todayCode(){ return DAYORDER[todayIdx()]; }
+function taskMap(){ const m={}; TASKS.forEach(t=>{ m[(t.day||'').toUpperCase()]=t; }); return m; }
 
 function showQuote(){
   const q=QUOTES[todayIdx()];
@@ -318,10 +320,10 @@ function getDone(){ try{return JSON.parse(localStorage.getItem(storeKey())||"{}"
 function setDone(o){ try{localStorage.setItem(storeKey(),JSON.stringify(o));}catch(e){} }
 
 /* 生成一张任务卡 */
-function cardHTML(t,idx,done){
+function cardHTML(t,done){
   const day=(t.day||"").toUpperCase();
   const isUpload=(t.type!=="text");
-  const isDone=!!done[idx];
+  const isDone=!!done[day];
   let exampleHTML="";
   if(t.example){
     exampleHTML=`<div class="tc-example"><div class="ex-zh">${t.example}</div>`+
@@ -330,17 +332,17 @@ function cardHTML(t,idx,done){
   let actionHTML="";
   if(isDone){
     actionHTML=`<div class="done-banner">✓ 已完成 Done!</div>
-      <button class="undo" onclick="undoTask(${idx})">取消打卡 · Undo</button>`;
+      <button class="undo" onclick="undoTask('${day}')">取消打卡 · Undo</button>`;
   } else if(isUpload){
     actionHTML=`
-      <label class="file-btn" for="file${idx}">Choose file · 选择文件</label>
-      <input type="file" id="file${idx}" style="display:none" onchange="pickFile(${idx})">
-      <div class="fileName" id="fname${idx}">No file selected</div>
-      <button class="btn" id="btn${idx}" onclick="submitUpload(${idx})">Submit &amp; Check in · 提交打卡</button>`;
+      <label class="file-btn" for="file_${day}">Choose file · 选择文件</label>
+      <input type="file" id="file_${day}" style="display:none" onchange="pickFile('${day}')">
+      <div class="fileName" id="fname_${day}">No file selected</div>
+      <button class="btn" id="btn_${day}" onclick="submitUpload('${day}')">Submit &amp; Check in · 提交打卡</button>`;
   } else {
     actionHTML=`
-      <textarea class="answer" id="ans${idx}" placeholder="Type your answer here… 在这里打字回答"></textarea>
-      <button class="btn" id="btn${idx}" onclick="submitText(${idx})">Submit &amp; Check in · 提交打卡</button>`;
+      <textarea class="answer" id="ans_${day}" placeholder="Type your answer here… 在这里打字回答"></textarea>
+      <button class="btn" id="btn_${day}" onclick="submitText('${day}')">Submit &amp; Check in · 提交打卡</button>`;
   }
   return `<div class="taskcard ${isDone?'done':''}">
     <div class="tc-top">
@@ -359,72 +361,76 @@ function cardHTML(t,idx,done){
 
 function renderTask(){
   const area=document.getElementById('taskArea');
-  const today=todayIdx();
   const done=getDone();
-  if(!TASKS.length){ area.innerHTML=`<div class="taskcard"><div class="tc-desc">还没有任务，请老师在表格里添加。</div></div>`; return; }
-  const safeToday=Math.min(today,TASKS.length-1);
+  if(!TASKS.length){ area.innerHTML=`<div class="taskcard"><div class="tc-desc">还没有作业，请老师布置。</div></div>`; return; }
+  const map=taskMap();
+  const today=todayCode();
+  const ti=DAYORDER.indexOf(today);
+
+  let hasPast=false;
+  for(let i=0;i<ti;i++){ if(map[DAYORDER[i]]) hasPast=true; }
 
   let html="";
-  // 展开时：先显示之前的天
-  if(showPast && safeToday>0){
-    for(let i=0;i<safeToday;i++) html+=cardHTML(TASKS[i],i,done);
+  // 展开时：先显示之前有作业的天
+  if(showPast){
+    for(let i=0;i<ti;i++){ const d=DAYORDER[i]; if(map[d]) html+=cardHTML(map[d],done); }
   }
   // 今天
-  html+=cardHTML(TASKS[safeToday],safeToday,done);
+  if(map[today]){ html+=cardHTML(map[today],done); }
+  else { html+=`<div class="taskcard"><div class="tc-desc">今天没有作业，休息一下 🌿<br>No task today — take a rest!</div></div>`; }
   // 展开/收起按钮
-  if(safeToday>0){
+  if(hasPast){
     html+=`<div class="pastbtn" onclick="togglePast()">${showPast?"▲ Hide previous days · 收起":"▼ Catch up on earlier days · 查看前几天"}</div>`;
   }
   // 明日预告
-  if(safeToday<TASKS.length-1){
-    html+=`<div class="peek">🔮 Tomorrow's task unlocks at midnight… <b>?????</b></div>`;
-  } else {
-    html+=`<div class="peek">🎉 That's the whole week — nice work!</div>`;
-  }
+  let hasFuture=false;
+  for(let i=ti+1;i<7;i++){ if(map[DAYORDER[i]]) hasFuture=true; }
+  if(hasFuture){ html+=`<div class="peek">🔮 Tomorrow's task unlocks at midnight… <b>?????</b></div>`; }
+  else { html+=`<div class="peek">🎉 That's everything for now — nice work!</div>`; }
   area.innerHTML=html;
 }
 function togglePast(){ showPast=!showPast; renderTask(); }
 
 /* 上传型提交 */
 const fileStore={};
-function pickFile(idx){
-  const f=document.getElementById('file'+idx).files[0];
+function pickFile(day){
+  const f=document.getElementById('file_'+day).files[0];
   if(!f)return;
-  document.getElementById('fname'+idx).textContent="Selected: "+f.name;
-  fileStore[idx]=f;   // 直接存 File 对象，提交时上传到 Storage
+  document.getElementById('fname_'+day).textContent="Selected: "+f.name;
+  fileStore[day]=f;   // 直接存 File 对象，提交时上传到 Storage
 }
-function submitUpload(idx){
-  const f=fileStore[idx];
+function submitUpload(day){
+  const f=fileStore[day];
   if(!f){ toast("Please choose a file first · 请先选文件"); return; }
-  const t=TASKS[idx];
-  const btn=document.getElementById('btn'+idx);
+  const t=taskMap()[day];
+  const btn=document.getElementById('btn_'+day);
   btn.disabled=true; btn.textContent="Uploading… 上传中";
   // 先上传文件到 Storage，拿到网址，再写一条打卡记录
   uploadFile(f)
-    .then(url=>rpc("submit_checkin",{p_username:currentUsername,p_day:t.day,p_task_title:cleanText(t.title),p_type:"upload",p_text_answer:"",p_file_url:url}))
-    .then(res=>{ if(!res||!res.ok) throw new Error("submit failed"); markDone(idx); })
+    .then(url=>rpc("submit_checkin",{p_username:currentUsername,p_day:day,p_task_title:cleanText(t.title),p_type:"upload",p_text_answer:"",p_file_url:url}))
+    .then(res=>{ if(!res||!res.ok) throw new Error("submit failed"); markDone(day); })
     .catch(()=>{ btn.disabled=false; btn.textContent="Submit & Check in · 提交打卡"; toast("Upload failed, please retry · 上传失败，请重试"); });
 }
 
 /* 打字型提交 */
-function submitText(idx){
-  const val=document.getElementById('ans'+idx).value.trim();
+function submitText(day){
+  const val=document.getElementById('ans_'+day).value.trim();
   if(!val){ toast("Please type your answer · 请先打字回答"); return; }
-  const t=TASKS[idx];
-  const btn=document.getElementById('btn'+idx);
+  const t=taskMap()[day];
+  const btn=document.getElementById('btn_'+day);
   btn.disabled=true; btn.textContent="Submitting… 提交中";
-  rpc("submit_checkin",{p_username:currentUsername,p_day:t.day,p_task_title:cleanText(t.title),p_type:"text",p_text_answer:val,p_file_url:""})
-    .then(res=>{ if(!res||!res.ok) throw new Error("submit failed"); markDone(idx); })
+  rpc("submit_checkin",{p_username:currentUsername,p_day:day,p_task_title:cleanText(t.title),p_type:"text",p_text_answer:val,p_file_url:""})
+    .then(res=>{ if(!res||!res.ok) throw new Error("submit failed"); markDone(day); })
     .catch(()=>{ btn.disabled=false; btn.textContent="Submit & Check in · 提交打卡"; toast("Submit failed, please retry · 提交失败，请重试"); });
 }
 
-function markDone(idx){
-  const done=getDone(); done[idx]=true; setDone(done);
+function markDone(day){
+  const done=getDone(); done[day]=true; setDone(done);
   renderTask();
   celebrate(Object.keys(done).length);
 }
-function undoTask(idx){
-  const done=getDone(); delete done[idx]; setDone(done);
+function undoTask(day){
+  const done=getDone(); delete done[day]; setDone(done);
   renderTask();
   toast("Unchecked · 已取消");
 }
