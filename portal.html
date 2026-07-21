@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cai Laoshi · Teacher Portal 老师后台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#fbf3e4;--cream2:#f5e9d4;--ink:#2a2622;--sub:#8c8175;
+    --persimmon:#e8622d;--cyan:#2e8fb0;--bamboo:#5a8a4a;--glaze:#e8b33d;
+    --line:#e6d8bf;--card:#fffaf0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:"Poppins","Noto Sans SC",-apple-system,sans-serif;color:var(--ink);
+    background-color:var(--cream);
+    background-image:
+      radial-gradient(circle at 10% 12%, rgba(232,98,45,.06) 0 20%, transparent 20%),
+      radial-gradient(circle at 92% 6%, rgba(46,143,176,.06) 0 16%, transparent 16%);
+    -webkit-font-smoothing:antialiased;min-height:100vh;}
+  .wrap{max-width:920px;margin:0 auto;padding:28px 20px 80px;}
+  h1,h2,h3{font-family:"Poppins",sans-serif;}
+  .cn{font-weight:900;}
+
+  /* ---- 登录 ---- */
+  #loginView{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .login-card{background:var(--card);border:2.5px solid var(--ink);border-radius:22px;padding:34px 30px;
+    max-width:400px;width:100%;box-shadow:8px 8px 0 rgba(232,98,45,.2);}
+  .login-card .stamp{display:inline-block;background:var(--persimmon);color:#fff;border:2.5px solid var(--ink);
+    border-radius:12px;padding:5px 14px;font-weight:800;font-size:12px;letter-spacing:2px;transform:rotate(-3deg);
+    box-shadow:3px 3px 0 var(--ink);margin-bottom:16px;}
+  .login-card h1{font-size:24px;margin-bottom:4px;}
+  .login-card p.hint{color:var(--sub);font-size:13px;margin-bottom:20px;}
+  label{display:block;font-family:"Poppins",sans-serif;font-weight:700;font-size:11px;letter-spacing:1.5px;
+    text-transform:uppercase;color:var(--sub);margin:14px 0 7px;}
+  input,textarea,select{width:100%;padding:12px 14px;border:2.5px solid var(--ink);border-radius:12px;
+    font-size:15px;font-family:"Noto Sans SC",sans-serif;background:var(--cream);outline:none;color:var(--ink);transition:.15s;}
+  input:focus,textarea:focus,select:focus{background:#fff;box-shadow:3px 3px 0 var(--cyan);}
+  textarea{min-height:64px;resize:vertical;}
+  .btn{border:2.5px solid var(--ink);border-radius:12px;background:var(--bamboo);color:#fff;font-weight:700;
+    font-family:"Poppins",sans-serif;font-size:15px;letter-spacing:.5px;padding:13px 18px;box-shadow:4px 4px 0 var(--ink);
+    transition:.12s;cursor:pointer;}
+  .btn:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--ink);}
+  .btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink);}
+  .btn:disabled{opacity:.55;transform:none;box-shadow:4px 4px 0 var(--ink);cursor:default;}
+  .btn.full{width:100%;margin-top:20px;}
+  .btn.sm{padding:8px 12px;font-size:13px;box-shadow:3px 3px 0 var(--ink);}
+  .btn.cyan{background:var(--cyan);}
+  .btn.ghost{background:var(--card);color:var(--ink);}
+  .btn.danger{background:#c0492a;}
+  .err{display:none;margin-top:14px;padding:11px 14px;border-radius:11px;background:rgba(232,98,45,.12);
+    border:2px solid var(--persimmon);color:#b8431c;font-size:13px;font-weight:600;line-height:1.5;}
+  .err.show{display:block;}
+
+  /* ---- 后台 ---- */
+  #appView{display:none;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;}
+  .topbar h1{font-size:24px;}
+  .topbar h1 .cn{color:var(--persimmon);}
+  .whoami{font-size:13px;color:var(--sub);font-weight:600;display:flex;align-items:center;gap:12px;}
+  .linkbtn{background:none;border:none;color:var(--cyan);font-weight:700;text-decoration:underline;cursor:pointer;font-size:13px;font-family:inherit;}
+
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px;}
+  .tab{border:2.5px solid var(--ink);border-radius:12px;background:var(--card);padding:9px 15px;font-weight:700;
+    font-family:"Poppins",sans-serif;font-size:14px;cursor:pointer;box-shadow:3px 3px 0 var(--ink);transition:.12s;}
+  .tab:hover{transform:translate(-1px,-1px);}
+  .tab.active{background:var(--persimmon);color:#fff;}
+  .panel{display:none;}
+  .panel.active{display:block;animation:fade .3s both;}
+  @keyframes fade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+
+  .sechead{display:flex;align-items:center;gap:10px;margin:0 2px 14px;}
+  .sechead .dot{width:9px;height:9px;border-radius:50%;background:var(--bamboo);}
+  .sechead span{font-size:12px;font-weight:700;letter-spacing:2px;color:var(--sub);text-transform:uppercase;}
+  .muted{color:var(--sub);font-size:14px;padding:20px 4px;}
+
+  .card2{background:var(--card);border:2.5px solid var(--ink);border-radius:16px;padding:16px 18px;margin-bottom:12px;
+    box-shadow:5px 5px 0 rgba(42,38,34,.12);}
+  .card2.done{border-color:var(--bamboo);box-shadow:5px 5px 0 rgba(90,138,74,.25);}
+
+  /* 进度格子 */
+  .gridwrap{overflow-x:auto;}
+  table.grid{border-collapse:separate;border-spacing:6px;min-width:520px;}
+  table.grid th{font-family:"Poppins",sans-serif;font-size:11px;letter-spacing:1px;color:var(--sub);text-transform:uppercase;padding:4px;text-align:center;}
+  table.grid td.name{font-weight:700;font-size:14px;white-space:nowrap;padding-right:8px;text-align:left;}
+  .cell{width:38px;height:38px;border:2.5px solid var(--ink);border-radius:9px;display:flex;align-items:center;justify-content:center;
+    font-weight:900;font-size:15px;background:var(--cream2);color:var(--line);}
+  .cell.on{background:var(--bamboo);color:#fff;}
+  .cell.today{outline:3px solid var(--glaze);outline-offset:1px;}
+
+  .sub-top{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+  .avatar{width:38px;height:38px;flex:0 0 38px;border-radius:50%;background:var(--glaze);border:2.5px solid var(--ink);
+    display:flex;align-items:center;justify-content:center;font-weight:900;font-size:15px;}
+  .sub-meta .nm{font-weight:700;font-size:15px;}
+  .sub-meta .dy{font-size:12px;color:var(--sub);}
+  .badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-left:auto;}
+  .badge.pending{background:rgba(232,179,61,.2);color:#96731a;}
+  .badge.reviewed{background:rgba(90,138,74,.18);color:var(--bamboo);}
+  .answerbox{background:var(--cream2);border-radius:10px;padding:11px 13px;font-size:15px;margin-bottom:10px;font-family:"Noto Sans SC",sans-serif;line-height:1.5;}
+  .filebox img{max-width:100%;border-radius:10px;border:2px solid var(--ink);margin-bottom:10px;}
+  audio{width:100%;margin-bottom:10px;}
+  .fb-existing{background:rgba(46,143,176,.1);border-left:4px solid var(--cyan);border-radius:0 8px 8px 0;padding:9px 12px;font-size:14px;margin-bottom:10px;}
+  .rowend{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap;}
+
+  .stud-row{display:flex;align-items:center;gap:12px;padding:12px 4px;border-bottom:2px dashed var(--line);}
+  .stud-row .info{flex:1;}
+  .stud-row .u{font-size:12px;color:var(--sub);}
+  .stud-row.inactive{opacity:.5;}
+  .addbox{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;}
+  .addbox input{flex:1;min-width:160px;}
+  .newcode{background:rgba(90,138,74,.12);border:2px solid var(--bamboo);border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:14px;display:none;}
+  .newcode.show{display:block;}
+  .newcode b{color:var(--persimmon);}
+
+  .task-row{background:var(--card);border:2.5px solid var(--ink);border-radius:14px;padding:14px 16px;margin-bottom:12px;box-shadow:4px 4px 0 rgba(42,38,34,.1);}
+  .task-row .dtag{display:inline-block;font-family:"Poppins",sans-serif;font-weight:800;font-size:12px;letter-spacing:1px;
+    background:var(--ink);color:#fff;padding:3px 10px;border-radius:8px;margin-bottom:10px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  @media(max-width:560px){.grid2{grid-template-columns:1fr;}}
+
+  .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(90px);background:var(--ink);color:#fff;
+    padding:12px 22px;border-radius:30px;font-size:14px;font-weight:600;opacity:0;transition:.3s cubic-bezier(.2,1.3,.4,1);
+    z-index:99;border:2.5px solid var(--glaze);}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .spin{width:34px;height:34px;border:4px solid var(--line);border-top-color:var(--persimmon);border-radius:50%;
+    margin:30px auto;animation:sp 1s linear infinite;}
+  @keyframes sp{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+
+<!-- 登录 -->
+<div id="loginView">
+  <div class="login-card">
+    <div class="stamp">CAI LAOSHI</div>
+    <h1>Teacher <span class="cn">后台</span></h1>
+    <p class="hint">只有老师能进。用你的邮箱和密码登录。</p>
+    <label for="email">Email · 邮箱</label>
+    <input id="email" type="email" autocomplete="username" placeholder="you@example.com">
+    <label for="pw">Password · 密码</label>
+    <input id="pw" type="password" autocomplete="current-password" placeholder="••••••••">
+    <button class="btn full" id="loginBtn" onclick="doLogin()">Log in · 登录</button>
+    <div class="err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- 后台 -->
+<div id="appView">
+  <div class="wrap">
+    <div class="topbar">
+      <h1>Teacher <span class="cn">后台</span> Portal</h1>
+      <div class="whoami"><span id="whoEmail"></span><button class="linkbtn" onclick="doLogout()">log out 退出</button></div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="progress" onclick="switchTab('progress')">📊 进度</button>
+      <button class="tab" data-tab="review" onclick="switchTab('review')">✍️ 批改</button>
+      <button class="tab" data-tab="students" onclick="switchTab('students')">👥 学生</button>
+      <button class="tab" data-tab="tasks" onclick="switchTab('tasks')">📝 作业</button>
+    </div>
+
+    <!-- 进度 -->
+    <div class="panel active" id="panel-progress">
+      <div class="sechead"><span class="dot"></span><span>This week · 本周打卡格子</span></div>
+      <div id="progressBody"><div class="spin"></div></div>
+    </div>
+
+    <!-- 批改 -->
+    <div class="panel" id="panel-review">
+      <div class="sechead"><span class="dot"></span><span>Submissions · 学生提交</span></div>
+      <div style="margin-bottom:14px;">
+        <label style="display:inline;margin:0 8px 0 0;">
+          <input type="checkbox" id="onlyPending" style="width:auto;" onchange="renderReview()"> 只看待批
+        </label>
+      </div>
+      <div id="reviewBody"><div class="spin"></div></div>
+    </div>
+
+    <!-- 学生 -->
+    <div class="panel" id="panel-students">
+      <div class="sechead"><span class="dot"></span><span>Students · 管理学生</span></div>
+      <div class="addbox">
+        <input id="newName" placeholder="新学生名字 (English name)">
+        <button class="btn cyan sm" onclick="addStudent()">+ 加学生</button>
+      </div>
+      <div class="newcode" id="newCode"></div>
+      <div id="studentsBody"><div class="spin"></div></div>
+    </div>
+
+    <!-- 作业 -->
+    <div class="panel" id="panel-tasks">
+      <div class="sechead"><span class="dot"></span><span>Weekly tasks · 每周作业内容</span></div>
+      <p class="muted" style="padding:0 2px 14px;">改完点每条的「保存」，学生端下次打开就更新。</p>
+      <div id="tasksBody"><div class="spin"></div></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = "https://qgtlqiszzgdkjbfpejef.supabase.co";
+const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFndGxxaXN6emdka2piZnBlamVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ1MjI4MzAsImV4cCI6MjEwMDA5ODgzMH0.nPh9EVcu7y7gyhiF2RpplU49rUhCv_pmy-lvuCfLYXM";
+const sb = supabase.createClient(SUPABASE_URL, ANON);
+
+const DAYS=["MON","TUE","WED","THU","FRI","SAT","SUN"];
+const DAYCN={MON:"周一",TUE:"周二",WED:"周三",THU:"周四",FRI:"周五",SAT:"周六",SUN:"周日"};
+let SUBS=[];        // 提交（含学生名 + 反馈）
+let STUDENTS=[];    // 学生
+
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);}
+function esc(s){return String(s==null?"":s).replace(/[<>&]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]));}
+
+/* ---------- 登录 ---------- */
+async function doLogin(){
+  const email=document.getElementById('email').value.trim();
+  const pw=document.getElementById('pw').value;
+  const err=document.getElementById('loginErr');err.classList.remove('show');
+  if(!email||!pw){err.textContent="请填邮箱和密码。";err.classList.add('show');return;}
+  const btn=document.getElementById('loginBtn');btn.disabled=true;btn.textContent="登录中…";
+  const {error}=await sb.auth.signInWithPassword({email,password:pw});
+  btn.disabled=false;btn.textContent="Log in · 登录";
+  if(error){err.textContent="登录失败："+(/Invalid/.test(error.message)?"邮箱或密码不对。":error.message);err.classList.add('show');return;}
+  enterApp();
+}
+async function doLogout(){await sb.auth.signOut();location.reload();}
+
+async function enterApp(){
+  const {data:{user}}=await sb.auth.getUser();
+  document.getElementById('loginView').style.display='none';
+  document.getElementById('appView').style.display='block';
+  document.getElementById('whoEmail').textContent="👋 "+(user?user.email:"");
+  loadAll();
+}
+
+/* ---------- 标签切换 ---------- */
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+}
+
+/* ---------- 加载数据 ---------- */
+async function loadAll(){ await Promise.all([loadStudents(), loadSubs(), loadTasks()]); }
+
+function weekStart(){const d=new Date();const wd=(d.getDay()+6)%7;d.setHours(0,0,0,0);d.setDate(d.getDate()-wd);return d;}
+function todayCode(){return DAYS[(new Date().getDay()+6)%7];}
+
+async function loadStudents(){
+  const {data,error}=await sb.from('students').select('*').order('created_at',{ascending:true});
+  if(error){toast("读学生失败");return;}
+  STUDENTS=data||[];renderProgress();renderStudents();
+}
+async function loadSubs(){
+  const {data,error}=await sb.from('submissions')
+    .select('*, students(display_name,username), feedback(teacher_comment)')
+    .order('submitted_at',{ascending:false});
+  if(error){toast("读提交失败");return;}
+  SUBS=data||[];renderProgress();renderReview();
+}
+
+/* ---------- 进度格子 ---------- */
+function renderProgress(){
+  const box=document.getElementById('progressBody');
+  if(!STUDENTS.length){box.innerHTML='<div class="muted">还没有学生。</div>';return;}
+  const ws=weekStart().getTime();
+  const done={}; // student_id -> Set(day)
+  SUBS.forEach(s=>{ if(new Date(s.submitted_at).getTime()>=ws){ (done[s.student_id]=done[s.student_id]||new Set()).add((s.day||"").toUpperCase()); }});
+  const td=todayCode();
+  let h='<div class="gridwrap"><table class="grid"><tr><th></th>'+DAYS.map(d=>`<th>${DAYCN[d]}</th>`).join('')+'</tr>';
+  STUDENTS.filter(s=>s.active!==false).forEach(s=>{
+    h+=`<tr><td class="name">${esc(s.display_name||s.username)}</td>`;
+    DAYS.forEach(d=>{const on=done[s.id]&&done[s.id].has(d);
+      h+=`<td><div class="cell ${on?'on':''} ${d===td?'today':''}">${on?'✓':''}</div></td>`;});
+    h+='</tr>';
+  });
+  h+='</table></div>';
+  box.innerHTML=h;
+}
+
+/* ---------- 批改 ---------- */
+function renderReview(){
+  const box=document.getElementById('reviewBody');
+  const onlyPending=document.getElementById('onlyPending').checked;
+  let list=SUBS.slice();
+  if(onlyPending) list=list.filter(s=>s.status!=='reviewed');
+  if(!list.length){box.innerHTML='<div class="muted">'+(onlyPending?'没有待批的了 🎉':'还没有提交。')+'</div>';return;}
+  box.innerHTML=list.map(s=>{
+    const nm=s.students?(s.students.display_name||s.students.username):"?";
+    const reviewed=s.status==='reviewed';
+    const fb=(s.feedback&&s.feedback.length)?s.feedback[0].teacher_comment:"";
+    let content="";
+    if(s.type==='text'||(s.text_answer&&!s.file_url)){
+      content=`<div class="answerbox">${esc(s.text_answer)||'(空)'}</div>`;
+    } else if(s.file_url){
+      const url=s.file_url, low=url.toLowerCase();
+      if(/\.(mp3|m4a|wav|ogg|aac|webm)($|\?)/.test(low)) content=`<audio controls src="${esc(url)}"></audio>`;
+      else if(/\.(jpg|jpeg|png|gif|webp|heic)($|\?)/.test(low)) content=`<div class="filebox"><a href="${esc(url)}" target="_blank"><img src="${esc(url)}" alt=""></a></div>`;
+      else content=`<div class="answerbox"><a href="${esc(url)}" target="_blank">📎 打开附件</a></div>`;
+    }
+    return `<div class="card2 ${reviewed?'done':''}">
+      <div class="sub-top">
+        <div class="avatar">${esc((nm[0]||'?').toUpperCase())}</div>
+        <div class="sub-meta"><div class="nm">${esc(nm)}</div>
+          <div class="dy">${esc((s.day||'').toUpperCase())} · ${esc(s.task_title||'')} · ${new Date(s.submitted_at).toLocaleDateString()}</div></div>
+        <span class="badge ${reviewed?'reviewed':'pending'}">${reviewed?'已批':'待批'}</span>
+      </div>
+      ${content}
+      ${fb?`<div class="fb-existing">💬 ${esc(fb)}</div>`:''}
+      <textarea id="fb_${s.id}" placeholder="写评语…">${esc(fb)}</textarea>
+      <div class="rowend"><button class="btn bamboo sm" onclick="saveFeedback('${s.id}')">✓ ${reviewed?'更新评语':'标记已批'}</button></div>
+    </div>`;
+  }).join('');
+}
+
+async function saveFeedback(subId){
+  const val=document.getElementById('fb_'+subId).value.trim();
+  const sub=SUBS.find(x=>x.id===subId);
+  const had=sub&&sub.feedback&&sub.feedback.length;
+  let res;
+  if(had){ res=await sb.from('feedback').update({teacher_comment:val}).eq('submission_id',subId); }
+  else{ res=await sb.from('feedback').insert({submission_id:subId,teacher_comment:val}); }
+  if(res.error){toast("保存失败："+res.error.message);return;}
+  await sb.from('submissions').update({status:'reviewed'}).eq('id',subId);
+  toast("已保存 ✓");
+  await loadSubs();
+}
+
+/* ---------- 学生 ---------- */
+function renderStudents(){
+  const box=document.getElementById('studentsBody');
+  if(!STUDENTS.length){box.innerHTML='<div class="muted">还没有学生。用上面加一个。</div>';return;}
+  box.innerHTML=STUDENTS.map(s=>{
+    const active=s.active!==false;
+    return `<div class="stud-row ${active?'':'inactive'}">
+      <div class="avatar">${esc((s.display_name||s.username||'?')[0].toUpperCase())}</div>
+      <div class="info"><div style="font-weight:700;">${esc(s.display_name||'')}</div><div class="u">${esc(s.username)}${active?'':' · 已停用'}</div></div>
+      <button class="btn ${active?'danger':'bamboo'} sm" onclick="toggleStudent('${s.id}',${active})">${active?'停用':'启用'}</button>
+    </div>`;
+  }).join('');
+}
+async function toggleStudent(id,active){
+  const {error}=await sb.from('students').update({active:!active}).eq('id',id);
+  if(error){toast("操作失败");return;}
+  toast(active?"已停用":"已启用");loadStudents();
+}
+async function addStudent(){
+  const name=document.getElementById('newName').value.trim();
+  if(!name){toast("请填名字");return;}
+  const {data,error}=await sb.rpc('admin_add_student',{p_display_name:name});
+  if(error){toast("加失败："+error.message);return;}
+  const username=data;
+  const link=location.href.replace(/portal\.html.*$/i,'').replace(/[^/]*$/,'')+"checkin.html?u="+encodeURIComponent(username);
+  const nc=document.getElementById('newCode');
+  nc.innerHTML=`✅ 建好了：<b>${esc(name)}</b> → 登录码 <b>${esc(username)}</b><br>打卡链接：<br><a href="${esc(link)}" target="_blank">${esc(link)}</a>`;
+  nc.classList.add('show');
+  document.getElementById('newName').value="";
+  loadStudents();
+}
+
+/* ---------- 作业 ---------- */
+async function loadTasks(){
+  const {data,error}=await sb.from('task_templates').select('*');
+  if(error){toast("读作业失败");return;}
+  const order={MON:1,TUE:2,WED:3,THU:4,FRI:5,SAT:6,SUN:7};
+  const rows=(data||[]).sort((a,b)=>(order[a.day]||9)-(order[b.day]||9));
+  const box=document.getElementById('tasksBody');
+  box.innerHTML=rows.map(t=>`
+    <div class="task-row">
+      <div class="dtag">${esc(t.day)} · ${DAYCN[t.day]||''}</div>
+      <div class="grid2">
+        <div><label>标题 Title</label><input id="t_title_${t.id}" value="${esc(t.title)}"></div>
+        <div><label>类型 Type</label><select id="t_type_${t.id}">
+          <option value="upload" ${t.type==='upload'?'selected':''}>upload · 上传录音/照片</option>
+          <option value="text" ${t.type==='text'?'selected':''}>text · 打字回答</option>
+        </select></div>
+      </div>
+      <label>说明 Description</label><textarea id="t_desc_${t.id}">${esc(t.description)}</textarea>
+      <div class="grid2" style="margin-top:10px;">
+        <div><label>例句 Example (可空)</label><input id="t_ex_${t.id}" value="${esc(t.example)}"></div>
+        <div><label>拼音 Pinyin (可空)</label><input id="t_py_${t.id}" value="${esc(t.pinyin)}"></div>
+      </div>
+      <div class="rowend"><button class="btn sm" onclick="saveTask('${t.id}')">💾 保存这条</button></div>
+    </div>`).join('');
+}
+async function saveTask(id){
+  const payload={
+    title:document.getElementById('t_title_'+id).value.trim(),
+    type:document.getElementById('t_type_'+id).value,
+    description:document.getElementById('t_desc_'+id).value.trim(),
+    example:document.getElementById('t_ex_'+id).value.trim()||null,
+    pinyin:document.getElementById('t_py_'+id).value.trim()||null
+  };
+  const {error}=await sb.from('task_templates').update(payload).eq('id',id);
+  if(error){toast("保存失败："+error.message);return;}
+  toast("已保存 ✓");
+}
+
+/* ---------- 启动：已登录就直接进 ---------- */
+(async()=>{
+  const {data:{session}}=await sb.auth.getSession();
+  if(session) enterApp();
+})();
+</script>
+</body>
+</html>
