@@ -127,6 +127,45 @@
   .spin{width:34px;height:34px;border:4px solid var(--line);border-top-color:var(--persimmon);border-radius:50%;
     margin:30px auto;animation:sp 1s linear infinite;}
   @keyframes sp{to{transform:rotate(360deg);}}
+
+  /* 批改：按学生分组，点开看 ta 的作业 */
+  .stu-review{border:2.5px solid var(--ink);border-radius:14px;margin-bottom:10px;background:var(--card);
+    box-shadow:4px 4px 0 rgba(42,38,34,.1);overflow:hidden;}
+  .stu-review-head{display:flex;align-items:center;gap:12px;padding:13px 16px;cursor:pointer;}
+  .stu-review-head:hover{background:var(--cream2);}
+  .stu-review-head .u{font-size:12px;color:var(--sub);}
+  .stu-review-body{padding:8px 16px 14px;border-top:2px dashed var(--line);}
+  .chev{font-size:13px;color:var(--sub);}
+
+  /* 学生：桌面表格 */
+  .stu-table{width:100%;border-collapse:collapse;}
+  .stu-table th{text-align:left;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--sub);
+    padding:8px 10px;border-bottom:2.5px solid var(--ink);}
+  .stu-table td{padding:10px;border-bottom:2px dashed var(--line);vertical-align:middle;font-size:14px;}
+  .stu-table tr.inactive{opacity:.5;}
+  .stu-table .nmcell{display:flex;align-items:center;gap:10px;}
+  .stu-table .av{width:32px;height:32px;flex:0 0 32px;border-radius:50%;background:var(--glaze);
+    border:2px solid var(--ink);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;}
+  .stu-table .u{font-size:11px;color:var(--sub);}
+  .stu-table select{padding:7px 10px;font-size:13px;}
+  @media(max-width:640px){
+    .stu-table thead{display:none;}
+    .stu-table td{display:block;border:none;padding:4px 6px;}
+    .stu-table td::before{content:attr(data-l);font-size:11px;color:var(--sub);margin-right:6px;}
+    .stu-table tr{display:block;border:2px dashed var(--line);border-radius:12px;padding:8px;margin-bottom:10px;}
+  }
+
+  /* 套餐导航：按类型折叠 */
+  .tracknav{border:2.5px solid var(--ink);border-radius:14px;overflow:hidden;margin-bottom:16px;background:var(--card);}
+  .tracknav-item{padding:11px 15px;cursor:pointer;font-weight:600;font-size:14px;border-bottom:1.5px solid var(--line);}
+  .tracknav-item:last-child{border-bottom:none;}
+  .tracknav-item:hover{background:var(--cream2);}
+  .tracknav-item.sel{background:var(--persimmon);color:#fff;}
+  .tracknav-item.sub{padding-left:30px;font-weight:600;}
+  .tracknav-item.sub .lv{font-weight:800;}
+  .tracknav-head{display:flex;justify-content:space-between;align-items:center;padding:11px 15px;cursor:pointer;
+    font-weight:800;font-family:"Poppins",sans-serif;font-size:14px;background:var(--cream2);border-bottom:1.5px solid var(--line);}
+  .tracknav-head:hover{background:var(--line);}
 </style>
 </head>
 <body>
@@ -192,12 +231,10 @@
     <!-- 套餐/作业 -->
     <div class="panel" id="panel-tasks">
       <div class="sechead"><span class="dot"></span><span>Tracks &amp; tasks · 套餐与作业</span></div>
-      <div class="addbox">
-        <select id="trackSel" onchange="renderTasksTab()" style="flex:1;min-width:200px;">
-          <option value="">默认（通用套餐）</option>
-        </select>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
         <button class="btn cyan sm" onclick="toggleNewTrack()">➕ 新建套餐</button>
       </div>
+      <div class="tracknav" id="trackNav"></div>
       <div class="newcode" id="newTrackBox">
         <div style="margin-bottom:8px;font-weight:700;">新建套餐</div>
         <input id="ntName" placeholder="套餐名字，如：口语为主·初级" style="margin-bottom:8px;">
@@ -228,8 +265,13 @@ const DAYCN={MON:"周一",TUE:"周二",WED:"周三",THU:"周四",FRI:"周五",SA
 let SUBS=[];        // 提交（含学生名 + 反馈）
 let STUDENTS=[];    // 学生
 let TRACKS=[];      // 套餐
+let selectedTrackId="";  // 套餐页当前选中（""=默认）
+let navOpen={};          // 套餐导航展开的类型
+let reviewOpen=null;     // 批改页展开的学生
 const TYPE_LABEL={oral:"纯口语",oral_plus:"口语为主",full:"综合",hsk:"HSK应试",business:"商务职场"};
 const LEVEL_LABEL={zero:"零基础",beginner:"初级",intermediate:"中级",advanced:"高级"};
+function typeOptions(cur){return Object.keys(TYPE_LABEL).map(k=>`<option value="${k}" ${cur===k?'selected':''}>${TYPE_LABEL[k]}</option>`).join('');}
+function levelOptions(cur){return Object.keys(LEVEL_LABEL).map(k=>`<option value="${k}" ${cur===k?'selected':''}>${LEVEL_LABEL[k]}</option>`).join('');}
 
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');
   clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);}
@@ -273,15 +315,29 @@ async function loadTracks(){
   const {data,error}=await sb.from('tracks').select('*').order('created_at',{ascending:true});
   if(error){toast("读套餐失败");return;}
   TRACKS=(data||[]).filter(t=>t.active!==false);
-  fillTrackSelector(); renderTasksTab(); renderStudents();
+  renderTrackNav(); renderTasksTab(); renderStudents();
 }
 function trackLabel(t){ return (t.name||'套餐')+' · '+(TYPE_LABEL[t.type]||t.type||'?')+'/'+(LEVEL_LABEL[t.level]||t.level||'?'); }
-function fillTrackSelector(){
-  const sel=document.getElementById('trackSel'); if(!sel) return;
-  const cur=sel.value;
-  sel.innerHTML='<option value="">默认（通用套餐）</option>'+TRACKS.map(t=>`<option value="${t.id}">${esc(trackLabel(t))}</option>`).join('');
-  sel.value=cur;
+
+const LEVEL_ORDER={beginner:1,intermediate:2,advanced:3,zero:0};
+function renderTrackNav(){
+  const nav=document.getElementById('trackNav'); if(!nav) return;
+  const groups={};
+  TRACKS.forEach(t=>{ (groups[t.type]=groups[t.type]||[]).push(t); });
+  let html=`<div class="tracknav-item ${selectedTrackId===''?'sel':''}" onclick="selectTrack('')">📋 默认（通用套餐）</div>`;
+  Object.keys(TYPE_LABEL).forEach(ty=>{
+    const list=(groups[ty]||[]).slice().sort((a,b)=>(LEVEL_ORDER[a.level]??9)-(LEVEL_ORDER[b.level]??9));
+    if(!list.length) return;
+    const open=!!navOpen[ty];
+    html+=`<div class="tracknav-head" onclick="toggleNav('${ty}')"><span>${TYPE_LABEL[ty]}</span><span class="chev">${open?'▾ 收起':'▸ '+list.length+' 个'}</span></div>`;
+    if(open){
+      html+=list.map(t=>`<div class="tracknav-item sub ${selectedTrackId===t.id?'sel':''}" onclick="selectTrack('${t.id}')"><span class="lv">${LEVEL_LABEL[t.level]||t.level}</span> — ${esc(t.name)}</div>`).join('');
+    }
+  });
+  nav.innerHTML=html;
 }
+function toggleNav(ty){ navOpen[ty]=!navOpen[ty]; renderTrackNav(); }
+function selectTrack(id){ selectedTrackId=id; renderTrackNav(); renderTasksTab(); }
 
 function weekStart(){const d=new Date();const wd=(d.getDay()+6)%7;d.setHours(0,0,0,0);d.setDate(d.getDate()-wd);return d;}
 function todayCode(){return DAYS[(new Date().getDay()+6)%7];}
@@ -318,37 +374,62 @@ function renderProgress(){
   box.innerHTML=h;
 }
 
-/* ---------- 批改 ---------- */
+/* ---------- 批改：按学生分组，点名字展开 ---------- */
+function toggleReview(sid){ reviewOpen = (reviewOpen===sid?null:sid); renderReview(); }
+
+function submissionCardHTML(s){
+  const reviewed=s.status==='reviewed';
+  const fb=(s.feedback&&s.feedback.length)?s.feedback[0].teacher_comment:"";
+  let content="";
+  if(s.type==='text'||(s.text_answer&&!s.file_url)){
+    content=`<div class="answerbox">${esc(s.text_answer)||'(空)'}</div>`;
+  } else if(s.file_url){
+    const url=s.file_url, low=url.toLowerCase();
+    if(/\.(mp3|m4a|wav|ogg|aac|webm)($|\?)/.test(low)) content=`<audio controls src="${esc(url)}"></audio>`;
+    else if(/\.(jpg|jpeg|png|gif|webp|heic)($|\?)/.test(low)) content=`<div class="filebox"><a href="${esc(url)}" target="_blank"><img src="${esc(url)}" alt=""></a></div>`;
+    else content=`<div class="answerbox"><a href="${esc(url)}" target="_blank">📎 打开附件</a></div>`;
+  }
+  return `<div class="card2 ${reviewed?'done':''}">
+    <div style="display:flex;align-items:center;margin-bottom:8px;">
+      <div class="dy" style="font-size:13px;color:var(--sub);">${esc((s.day||'').toUpperCase())} · ${esc(s.task_title||'')} · ${new Date(s.submitted_at).toLocaleDateString()}</div>
+      <span class="badge ${reviewed?'reviewed':'pending'}">${reviewed?'已批':'待批'}</span>
+    </div>
+    ${content}
+    ${fb?`<div class="fb-existing">💬 ${esc(fb)}</div>`:''}
+    <textarea id="fb_${s.id}" placeholder="写评语…">${esc(fb)}</textarea>
+    <div class="rowend"><button class="btn bamboo sm" onclick="saveFeedback('${s.id}')">✓ ${reviewed?'更新评语':'标记已批'}</button></div>
+  </div>`;
+}
+
 function renderReview(){
   const box=document.getElementById('reviewBody');
   const onlyPending=document.getElementById('onlyPending').checked;
-  let list=SUBS.slice();
-  if(onlyPending) list=list.filter(s=>s.status!=='reviewed');
-  if(!list.length){box.innerHTML='<div class="muted">'+(onlyPending?'没有待批的了 🎉':'还没有提交。')+'</div>';return;}
-  box.innerHTML=list.map(s=>{
-    const nm=s.students?(s.students.display_name||s.students.username):"?";
-    const reviewed=s.status==='reviewed';
-    const fb=(s.feedback&&s.feedback.length)?s.feedback[0].teacher_comment:"";
-    let content="";
-    if(s.type==='text'||(s.text_answer&&!s.file_url)){
-      content=`<div class="answerbox">${esc(s.text_answer)||'(空)'}</div>`;
-    } else if(s.file_url){
-      const url=s.file_url, low=url.toLowerCase();
-      if(/\.(mp3|m4a|wav|ogg|aac|webm)($|\?)/.test(low)) content=`<audio controls src="${esc(url)}"></audio>`;
-      else if(/\.(jpg|jpeg|png|gif|webp|heic)($|\?)/.test(low)) content=`<div class="filebox"><a href="${esc(url)}" target="_blank"><img src="${esc(url)}" alt=""></a></div>`;
-      else content=`<div class="answerbox"><a href="${esc(url)}" target="_blank">📎 打开附件</a></div>`;
-    }
-    return `<div class="card2 ${reviewed?'done':''}">
-      <div class="sub-top">
-        <div class="avatar">${esc((nm[0]||'?').toUpperCase())}</div>
-        <div class="sub-meta"><div class="nm">${esc(nm)}</div>
-          <div class="dy">${esc((s.day||'').toUpperCase())} · ${esc(s.task_title||'')} · ${new Date(s.submitted_at).toLocaleDateString()}</div></div>
-        <span class="badge ${reviewed?'reviewed':'pending'}">${reviewed?'已批':'待批'}</span>
+  const byStu={};
+  SUBS.forEach(s=>{ (byStu[s.student_id]=byStu[s.student_id]||[]).push(s); });
+  let entries=Object.keys(byStu).map(sid=>{
+    const subs=byStu[sid];
+    const pending=subs.filter(x=>x.status!=='reviewed').length;
+    const nm=subs[0].students?(subs[0].students.display_name||subs[0].students.username):"?";
+    const latest=subs.map(x=>x.submitted_at).sort().slice(-1)[0];
+    return {sid,subs,pending,nm,latest};
+  });
+  if(onlyPending) entries=entries.filter(e=>e.pending>0);
+  entries.sort((a,b)=> (b.pending-a.pending) || (a.latest<b.latest?1:-1));
+  if(!entries.length){box.innerHTML='<div class="muted">'+(onlyPending?'没有待批的了 🎉':'还没有提交。')+'</div>';return;}
+  box.innerHTML=entries.map(e=>{
+    const open=reviewOpen===e.sid;
+    let subs=e.subs.slice();
+    if(onlyPending) subs=subs.filter(x=>x.status!=='reviewed');
+    subs.sort((a,b)=> a.submitted_at<b.submitted_at?1:-1);
+    return `<div class="stu-review">
+      <div class="stu-review-head" onclick="toggleReview('${e.sid}')">
+        <div class="avatar">${esc((e.nm[0]||'?').toUpperCase())}</div>
+        <div style="flex:1;"><div style="font-weight:700;">${esc(e.nm)}</div>
+          <div class="u">${e.subs.length} 份提交 · 最近 ${new Date(e.latest).toLocaleDateString()}</div></div>
+        ${e.pending?`<span class="badge pending">${e.pending} 待批</span>`:`<span class="badge reviewed">全批完</span>`}
+        <span class="chev" style="margin-left:8px;">${open?'▲':'▼'}</span>
       </div>
-      ${content}
-      ${fb?`<div class="fb-existing">💬 ${esc(fb)}</div>`:''}
-      <textarea id="fb_${s.id}" placeholder="写评语…">${esc(fb)}</textarea>
-      <div class="rowend"><button class="btn bamboo sm" onclick="saveFeedback('${s.id}')">✓ ${reviewed?'更新评语':'标记已批'}</button></div>
+      ${open?`<div class="stu-review-body">${subs.map(s=>submissionCardHTML(s)).join('')||'<div class="muted">这个学生没有待批的了。</div>'}</div>`:''}
     </div>`;
   }).join('');
 }
@@ -371,22 +452,18 @@ function renderStudents(){
   const box=document.getElementById('studentsBody'); if(!box) return;
   if(!STUDENTS.length){box.innerHTML='<div class="muted">还没有学生。用上面加一个。</div>';return;}
   const trackOpts=(cur)=>'<option value="">默认（通用）</option>'+TRACKS.map(t=>`<option value="${t.id}" ${cur===t.id?'selected':''}>${esc(trackLabel(t))}</option>`).join('');
-  box.innerHTML=STUDENTS.map(s=>{
+  const rows=STUDENTS.map(s=>{
     const active=s.active!==false;
     const self=(s.stu_type||s.stu_level)?((TYPE_LABEL[s.stu_type]||s.stu_type||'')+' '+(LEVEL_LABEL[s.stu_level]||s.stu_level||'')).trim():'—';
-    return `<div class="stud-row ${active?'':'inactive'}">
-      <div class="avatar">${esc((s.display_name||s.username||'?')[0].toUpperCase())}</div>
-      <div class="info">
-        <div style="font-weight:700;">${esc(s.display_name||'')}</div>
-        <div class="u">${esc(s.username)} · 自选：${esc(self)}${active?'':' · 已停用'}</div>
-        <div style="margin-top:6px;display:flex;align-items:center;gap:6px;">
-          <span style="font-size:12px;color:var(--sub);">套餐</span>
-          <select onchange="assignTrack('${s.id}',this.value)" style="padding:7px 10px;font-size:13px;max-width:100%;">${trackOpts(s.track_id||"")}</select>
-        </div>
-      </div>
-      <button class="btn ${active?'danger':'bamboo'} sm" onclick="toggleStudent('${s.id}',${active})">${active?'停用':'启用'}</button>
-    </div>`;
+    return `<tr class="${active?'':'inactive'}">
+      <td data-l="学生"><div class="nmcell"><div class="av">${esc((s.display_name||s.username||'?')[0].toUpperCase())}</div>
+        <div><div style="font-weight:700;">${esc(s.display_name||'')}</div><div class="u">${esc(s.username)}${active?'':' · 已停用'}</div></div></div></td>
+      <td data-l="自选">${esc(self)}</td>
+      <td data-l="套餐"><select onchange="assignTrack('${s.id}',this.value)">${trackOpts(s.track_id||"")}</select></td>
+      <td data-l="操作"><button class="btn ${active?'danger':'bamboo'} sm" onclick="toggleStudent('${s.id}',${active})">${active?'停用':'启用'}</button></td>
+    </tr>`;
   }).join('');
+  box.innerHTML=`<table class="stu-table"><thead><tr><th>学生 Student</th><th>自选 Self-pick</th><th>套餐 Track</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 async function assignTrack(id,trackId){
   const {error}=await sb.from('students').update({track_id:trackId||null}).eq('id',id);
@@ -432,21 +509,31 @@ async function createTrack(){
   toast("套餐建好了 ✓");
   document.getElementById('newTrackBox').classList.remove('show');
   document.getElementById('ntName').value="";
+  selectedTrackId=data; navOpen[type]=true;
   await loadTracks();
-  const sel=document.getElementById('trackSel'); sel.value=data; renderTasksTab();
 }
 async function deleteTrack(id){
   if(!confirm("确定删除这个套餐吗？分到它的学生会回到默认套餐。")) return;
   const {error}=await sb.from('tracks').delete().eq('id',id);
   if(error){toast("删除失败："+error.message);return;}
   toast("已删除");
-  document.getElementById('trackSel').value="";
-  await loadTracks(); renderTasksTab();
+  selectedTrackId="";
+  await loadTracks();
+}
+async function saveTrackInfo(id){
+  const name=document.getElementById('tk_name').value.trim();
+  const type=document.getElementById('tk_type').value;
+  const level=document.getElementById('tk_level').value;
+  if(!name){toast("套餐要有名字");return;}
+  const {error}=await sb.from('tracks').update({name,type,level}).eq('id',id);
+  if(error){toast("保存失败："+error.message);return;}
+  toast("套餐信息已保存 ✓");
+  selectedTrackId=id;
+  await loadTracks();
 }
 async function renderTasksTab(){
-  const sel=document.getElementById('trackSel'); if(!sel) return;
-  const trackId=sel.value;
-  const box=document.getElementById('tasksBody');
+  const box=document.getElementById('tasksBody'); if(!box) return;
+  const trackId=selectedTrackId;
   const hint=document.getElementById('tasksHint');
   box.innerHTML='<div class="spin"></div>';
   const order={MON:1,TUE:2,WED:3,THU:4,FRI:5,SAT:6,SUN:7};
@@ -456,11 +543,21 @@ async function renderTasksTab(){
     const {data,error}=await sb.from('track_tasks').select('*').eq('track_id',trackId);
     if(error){toast("读作业失败");return;}
     rows=(data||[]).sort((a,b)=>(order[a.day]||9)-(order[b.day]||9));
-    const t=TRACKS.find(x=>x.id===trackId);
-    header=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
-      <div style="font-weight:700;">正在编辑套餐：${esc(t?trackLabel(t):'')}</div>
-      <button class="btn danger sm" onclick="deleteTrack('${trackId}')" style="margin-left:auto;">删除此套餐</button></div>`;
-    hint.textContent="改完点「保存」。某天不想让学生做，把「这天开」取消即可。";
+    const t=TRACKS.find(x=>x.id===trackId)||{};
+    header=`<div style="background:var(--card);border:2.5px solid var(--ink);border-radius:14px;padding:14px 16px;margin-bottom:16px;box-shadow:4px 4px 0 rgba(42,38,34,.1);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <div style="font-weight:700;">套餐设置 · 名字 / 类型 / 水平</div>
+        <button class="btn danger sm" onclick="deleteTrack('${trackId}')" style="margin-left:auto;">删除此套餐</button>
+      </div>
+      <label>套餐名字 Name</label><input id="tk_name" value="${esc(t.name)}">
+      <div class="grid2" style="margin-top:10px;">
+        <div><label>类型 Type</label><select id="tk_type">${typeOptions(t.type)}</select></div>
+        <div><label>水平 Level</label><select id="tk_level">${levelOptions(t.level)}</select></div>
+      </div>
+      <div style="font-size:12px;color:var(--sub);margin-top:8px;">类型+水平要跟学生注册时选的一致，才能自动分配。</div>
+      <div class="rowend"><button class="btn cyan sm" onclick="saveTrackInfo('${trackId}')">💾 保存套餐信息</button></div>
+    </div>`;
+    hint.textContent="下面是这个套餐的七天作业。改完点每条「保存」。某天不想让学生做，把「这天开」取消即可。";
   } else {
     const {data,error}=await sb.from('task_templates').select('*');
     if(error){toast("读作业失败");return;}
