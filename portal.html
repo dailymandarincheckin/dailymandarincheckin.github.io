@@ -525,7 +525,7 @@ function stuItemHtml(s){
 }
 function toggleSide(){ sideCollapsed=!sideCollapsed; renderStudents(); }
 function toggleGroup(t){ tmplGroupOpen[t]=!tmplGroupOpen[t]; renderStudents(); }
-function selectStudent(id){ selectedStuId=id; renderStudents(); renderStudentDetail(id); }
+function selectStudent(id){ selectedStuId=id; renderStudents(); renderStudentDetail(id); window.scrollTo({top:0,behavior:'smooth'}); }
 
 function renderStudentDetail(id){
   const box=document.getElementById('stuDetail'); if(!box) return;
@@ -649,6 +649,7 @@ function openAddStudent(){
     </div>
     <div class="rowend" style="margin-top:12px;"><button class="btn cyan sm" onclick="submitAddStudent()">建这个学生</button></div>
     <div id="as_result"></div></div>`;
+  window.scrollTo({top:0,behavior:'smooth'});
 }
 async function submitAddStudent(){
   const name=document.getElementById('as_name').value.trim();
@@ -659,9 +660,12 @@ async function submitAddStudent(){
   const {data,error}=await sb.rpc('admin_upsert_student',{p_id:null,p_display_name:name,p_type:type,p_level:level});
   if(error){toast('加失败：'+error.message);return;}
   const username=data, link=studentLink(username);
-  const r=document.getElementById('as_result');
-  if(r) r.innerHTML=`<div class="newcode show" style="margin-top:12px;">✅ 建好了：<b>${esc(name)}</b> → 登录码 <b>${esc(username)}</b><br>打卡链接：<br><a href="${esc(link)}" target="_blank">${esc(link)}</a><br><span style="color:var(--sub);font-size:12px;">现在 ta 在「跟随模板」里。想给 ta 专属作业 → 从左边点开 ta → 🔧单独定制。</span></div>`;
   await loadStudents();
+  const ns=STUDENTS.find(x=>x.username===username);
+  const r=document.getElementById('as_result');
+  if(r) r.innerHTML=`<div class="newcode show" style="margin-top:12px;">✅ 建好了：<b>${esc(name)}</b> → 登录码 <b>${esc(username)}</b><br>打卡链接：<br><a href="${esc(link)}" target="_blank">${esc(link)}</a>
+    <div class="rowend" style="margin-top:10px;">${ns?`<button class="btn bamboo sm" onclick="customize('${ns.id}')">🔧 单独定制（给 ta 专属作业）</button>`:''}</div>
+    <span style="color:var(--sub);font-size:12px;">或以后从左边点开 ta 再定制。</span></div>`;
 }
 async function toggleStudent(id,active){
   const {error}=await sb.from('students').update({active:!active}).eq('id',id);
