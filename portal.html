@@ -166,6 +166,43 @@
   .tracknav-head{display:flex;justify-content:space-between;align-items:center;padding:11px 15px;cursor:pointer;
     font-weight:800;font-family:"Poppins",sans-serif;font-size:14px;background:var(--cream2);border-bottom:1.5px solid var(--line);}
   .tracknav-head:hover{background:var(--line);}
+
+  /* 学生·作业 hub：左列表 + 右详情 */
+  .hub{display:flex;gap:16px;align-items:flex-start;}
+  .hub-side{width:250px;flex:0 0 250px;border:2.5px solid var(--ink);border-radius:14px;background:var(--card);
+    overflow:hidden;box-shadow:4px 4px 0 rgba(42,38,34,.1);transition:.15s;}
+  .hub-side.collapsed{width:48px;flex:0 0 48px;}
+  .side-top{display:flex;justify-content:space-between;align-items:center;background:var(--ink);color:#fff;
+    padding:9px 12px;font-weight:800;font-size:13px;font-family:"Poppins",sans-serif;}
+  .side-top .collapse{background:var(--persimmon);border:2px solid #fff;border-radius:7px;padding:1px 8px;font-size:12px;cursor:pointer;}
+  .side-collapsed-bar{writing-mode:vertical-rl;padding:14px 0;text-align:center;cursor:pointer;font-weight:800;color:var(--sub);font-size:13px;}
+  .side-sec{padding:10px 11px;border-bottom:2px dashed var(--line);}
+  .sec-h{font-size:11px;font-weight:900;letter-spacing:.5px;color:var(--bamboo);margin-bottom:8px;text-transform:uppercase;}
+  .sec-h.star{color:var(--persimmon);}
+  .s-item{border:2px solid var(--ink);border-radius:10px;padding:7px 10px;margin-bottom:7px;cursor:pointer;
+    background:var(--cream);box-shadow:2px 2px 0 var(--ink);transition:.1s;}
+  .s-item:hover{transform:translate(-1px,-1px);}
+  .s-item.on{background:var(--glaze);}
+  .s-item b{display:block;font-size:14px;}
+  .s-item .lv{font-size:11px;color:var(--sub);}
+  .grp{display:flex;justify-content:space-between;align-items:center;border:2px solid var(--ink);border-radius:10px;
+    padding:7px 10px;margin-bottom:7px;cursor:pointer;background:rgba(46,143,176,.1);font-size:13px;}
+  .grp .cnt{font-size:11px;font-weight:800;background:var(--cyan);color:#fff;border:2px solid var(--ink);border-radius:20px;padding:0 8px;}
+  .side-add{border:2px dashed var(--ink);border-radius:10px;padding:8px;text-align:center;font-weight:800;
+    font-size:13px;color:var(--cyan);cursor:pointer;margin:10px 11px;}
+  .hub-main{flex:1;min-width:0;}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px;}
+  .chip{background:var(--card);border:2px solid var(--ink);border-radius:20px;padding:2px 12px;font-size:13px;font-weight:700;}
+  .chip.hsk{background:var(--cyan);color:#fff;}
+  .chip.edit{background:var(--glaze);cursor:pointer;}
+  .acts{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+  .btn.gray{background:#ddd;color:#8c8175;border-style:dashed;box-shadow:none;}
+  .btn.gray:hover{transform:none;box-shadow:none;}
+  .ro-day{display:flex;gap:10px;align-items:center;border:2px solid var(--ink);border-radius:10px;padding:8px 11px;margin-bottom:7px;background:var(--card);}
+  .ro-day .d{font-weight:800;font-size:13px;width:42px;flex:0 0 42px;}
+  .ro-day .k{font-size:11px;font-weight:800;border:2px solid var(--ink);border-radius:6px;padding:0 6px;}
+  .follow-note{background:rgba(46,143,176,.1);border-left:4px solid var(--cyan);border-radius:0 8px 8px 0;padding:10px 13px;font-size:13px;margin-bottom:12px;line-height:1.6;}
+  @media(max-width:640px){.hub{flex-direction:column;}.hub-side,.hub-side.collapsed{width:100%;flex:1 1 auto;}}
 </style>
 </head>
 <body>
@@ -196,8 +233,8 @@
     <div class="tabs">
       <button class="tab active" data-tab="progress" onclick="switchTab('progress')">📊 进度</button>
       <button class="tab" data-tab="review" onclick="switchTab('review')">✍️ 批改</button>
-      <button class="tab" data-tab="students" onclick="switchTab('students')">👥 学生</button>
-      <button class="tab" data-tab="tasks" onclick="switchTab('tasks')">📝 套餐</button>
+      <button class="tab" data-tab="students" onclick="switchTab('students')">🧑‍🎓 学生·作业</button>
+      <button class="tab" data-tab="tasks" onclick="switchTab('tasks')">📚 模板库</button>
     </div>
 
     <!-- 进度 -->
@@ -217,15 +254,13 @@
       <div id="reviewBody"><div class="spin"></div></div>
     </div>
 
-    <!-- 学生 -->
+    <!-- 学生 · 作业 -->
     <div class="panel" id="panel-students">
-      <div class="sechead"><span class="dot"></span><span>Students · 管理学生</span></div>
-      <div class="addbox">
-        <input id="newName" placeholder="新学生名字 (English name)">
-        <button class="btn cyan sm" onclick="addStudent()">+ 加学生</button>
+      <div class="sechead"><span class="dot"></span><span>Students · 学生与作业</span></div>
+      <div class="hub">
+        <div class="hub-side" id="stuList"><div class="spin"></div></div>
+        <div class="hub-main" id="stuDetail"><div class="muted">← 从左边选一个学生，或点「＋ 加学生」</div></div>
       </div>
-      <div class="newcode" id="newCode"></div>
-      <div id="studentsBody"><div class="spin"></div></div>
     </div>
 
     <!-- 套餐/作业 -->
@@ -268,10 +303,18 @@ let TRACKS=[];      // 套餐
 let selectedTrackId="";  // 套餐页当前选中（""=默认）
 let navOpen={};          // 套餐导航展开的类型
 let reviewOpen=null;     // 批改页展开的学生
+let selectedStuId=null;  // 学生·作业页当前选中的学生
+let sideCollapsed=false; // 左侧学生列表是否折叠
+let tmplGroupOpen={};    // 跟随模板分组的展开状态
 const TYPE_LABEL={oral:"纯口语",oral_plus:"口语为主",full:"综合",hsk:"HSK应试",business:"商务职场"};
-const LEVEL_LABEL={zero:"零基础",beginner:"初级",intermediate:"中级",advanced:"高级"};
+// 显示用（含旧值兼容映射）
+const LEVEL_LABEL={pinyin:"零基础（拼音）",hsk1:"HSK1",hsk2:"HSK2",hsk3:"HSK3",hsk4:"HSK4",hsk5:"HSK5",hsk6:"HSK6",
+  zero:"零基础（拼音）",beginner:"HSK1",intermediate:"HSK3",advanced:"HSK5"};
+// 下拉框只用这 7 个正式档
+const LEVEL_KEYS=["pinyin","hsk1","hsk2","hsk3","hsk4","hsk5","hsk6"];
+const LEVEL_ORDER={pinyin:0,hsk1:1,hsk2:2,hsk3:3,hsk4:4,hsk5:5,hsk6:6,zero:0,beginner:1,intermediate:3,advanced:5};
 function typeOptions(cur){return Object.keys(TYPE_LABEL).map(k=>`<option value="${k}" ${cur===k?'selected':''}>${TYPE_LABEL[k]}</option>`).join('');}
-function levelOptions(cur){return Object.keys(LEVEL_LABEL).map(k=>`<option value="${k}" ${cur===k?'selected':''}>${LEVEL_LABEL[k]}</option>`).join('');}
+function levelOptions(cur){return LEVEL_KEYS.map(k=>`<option value="${k}" ${cur===k?'selected':''}>${LEVEL_LABEL[k]}</option>`).join('');}
 
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');
   clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);}
@@ -314,12 +357,11 @@ async function loadAll(){
 async function loadTracks(){
   const {data,error}=await sb.from('tracks').select('*').order('created_at',{ascending:true});
   if(error){toast("读套餐失败");return;}
-  TRACKS=(data||[]).filter(t=>t.active!==false);
+  TRACKS=(data||[]).filter(t=>t.active!==false && !t.owner_student_id);
   renderTrackNav(); renderTasksTab(); renderStudents();
 }
 function trackLabel(t){ return (t.name||'套餐')+' · '+(TYPE_LABEL[t.type]||t.type||'?')+'/'+(LEVEL_LABEL[t.level]||t.level||'?'); }
 
-const LEVEL_ORDER={beginner:1,intermediate:2,advanced:3,zero:0};
 function renderTrackNav(){
   const nav=document.getElementById('trackNav'); if(!nav) return;
   const groups={};
@@ -447,47 +489,186 @@ async function saveFeedback(subId){
   await loadSubs();
 }
 
-/* ---------- 学生 ---------- */
-function renderStudents(){
-  const box=document.getElementById('studentsBody'); if(!box) return;
-  if(!STUDENTS.length){box.innerHTML='<div class="muted">还没有学生。用上面加一个。</div>';return;}
-  const trackOpts=(cur)=>'<option value="">默认（通用）</option>'+TRACKS.map(t=>`<option value="${t.id}" ${cur===t.id?'selected':''}>${esc(trackLabel(t))}</option>`).join('');
-  const rows=STUDENTS.map(s=>{
-    const active=s.active!==false;
-    const self=(s.stu_type||s.stu_level)?((TYPE_LABEL[s.stu_type]||s.stu_type||'')+' '+(LEVEL_LABEL[s.stu_level]||s.stu_level||'')).trim():'—';
-    return `<tr class="${active?'':'inactive'}">
-      <td data-l="学生"><div class="nmcell"><div class="av">${esc((s.display_name||s.username||'?')[0].toUpperCase())}</div>
-        <div><div style="font-weight:700;">${esc(s.display_name||'')}</div><div class="u">${esc(s.username)}${active?'':' · 已停用'}</div></div></div></td>
-      <td data-l="自选">${esc(self)}</td>
-      <td data-l="套餐"><select onchange="assignTrack('${s.id}',this.value)">${trackOpts(s.track_id||"")}</select></td>
-      <td data-l="操作"><button class="btn ${active?'danger':'bamboo'} sm" onclick="toggleStudent('${s.id}',${active})">${active?'停用':'启用'}</button></td>
-    </tr>`;
-  }).join('');
-  box.innerHTML=`<table class="stu-table"><thead><tr><th>学生 Student</th><th>自选 Self-pick</th><th>套餐 Track</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+/* ---------- 学生 · 作业（两种学生：个性化 / 跟随模板）---------- */
+function studentLink(u){ return location.href.replace(/portal\.html.*$/i,'').replace(/[^/]*$/,'')+"checkin.html?u="+encodeURIComponent(u); }
+
+function renderStudents(){   // 渲染左侧学生列表
+  const box=document.getElementById('stuList'); if(!box) return;
+  if(sideCollapsed){ box.classList.add('collapsed');
+    box.innerHTML=`<div class="side-collapsed-bar" onclick="toggleSide()">▶ 我的学生</div>`; return; }
+  box.classList.remove('collapsed');
+  const act=STUDENTS.filter(s=>s.active!==false);
+  const custom=act.filter(s=>s.is_custom);
+  const followers=act.filter(s=>!s.is_custom);
+  const groups={};
+  followers.forEach(s=>{ (groups[s.track_id||'none']=groups[s.track_id||'none']||[]).push(s); });
+  let html=`<div class="side-top"><span>🧑‍🎓 我的学生</span><span class="collapse" onclick="toggleSide()">◀ 收起</span></div>`;
+  html+=`<div class="side-sec"><div class="sec-h star">⭐ 个性化 · 单独盯</div>`;
+  html+= custom.length?custom.map(stuItemHtml).join(''):`<div class="muted" style="padding:2px;font-size:13px;">（暂无）</div>`;
+  html+=`</div><div class="side-sec"><div class="sec-h">📚 跟随模板 · 不用管</div>`;
+  const gkeys=Object.keys(groups);
+  if(!gkeys.length) html+=`<div class="muted" style="padding:2px;font-size:13px;">（暂无）</div>`;
+  gkeys.forEach(tid=>{
+    const t=TRACKS.find(x=>x.id===tid);
+    const nm=t?esc(t.name):'默认（通用）';
+    const open=!!tmplGroupOpen[tid];
+    html+=`<div class="grp" onclick="toggleGroup('${tid}')"><b>${open?'▾':'▸'} ${nm}</b><span class="cnt">${groups[tid].length} 人</span></div>`;
+    if(open) html+=groups[tid].map(stuItemHtml).join('');
+  });
+  html+=`</div><div class="side-add" onclick="openAddStudent()">＋ 加学生</div>`;
+  box.innerHTML=html;
 }
-async function assignTrack(id,trackId){
-  const {error}=await sb.from('students').update({track_id:trackId||null}).eq('id',id);
-  if(error){toast("改套餐失败："+error.message);return;}
-  toast("已改套餐 ✓");
-  const s=STUDENTS.find(x=>x.id===id); if(s) s.track_id=trackId||null;
+function stuItemHtml(s){
+  return `<div class="s-item ${selectedStuId===s.id?'on':''}" onclick="selectStudent('${s.id}')">
+    <b>${esc(s.display_name||s.username||'?')}</b>
+    <span class="lv">${TYPE_LABEL[s.stu_type]||s.stu_type||'—'} · ${LEVEL_LABEL[s.stu_level]||s.stu_level||'—'}</span></div>`;
+}
+function toggleSide(){ sideCollapsed=!sideCollapsed; renderStudents(); }
+function toggleGroup(t){ tmplGroupOpen[t]=!tmplGroupOpen[t]; renderStudents(); }
+function selectStudent(id){ selectedStuId=id; renderStudents(); renderStudentDetail(id); }
+
+function renderStudentDetail(id){
+  const box=document.getElementById('stuDetail'); if(!box) return;
+  const s=STUDENTS.find(x=>x.id===id);
+  if(!s){ box.innerHTML='<div class="muted">← 从左边选一个学生</div>'; return; }
+  const custom=!!s.is_custom;
+  const acts= custom
+    ? `<div class="acts">
+         <button class="btn cyan sm" onclick="openApplyTemplate('${s.id}')">📋 从模板套一份</button>
+         <button class="btn gray sm" title="第3阶段上线" disabled>🤖 AI 帮我出一周</button>
+       </div>`
+    : `<div class="acts">
+         <button class="btn bamboo sm" onclick="customize('${s.id}')">🔧 单独定制</button>
+         <button class="btn gray sm" title="第3阶段上线" disabled>🤖 AI 帮我出一周</button>
+       </div>`;
+  const active=s.active!==false;
+  box.innerHTML=`
+    <div class="chips">
+      <span class="chip">登录码 ${esc(s.username)}</span>
+      <span class="chip">${TYPE_LABEL[s.stu_type]||s.stu_type||'—'}</span>
+      <span class="chip hsk">${LEVEL_LABEL[s.stu_level]||s.stu_level||'—'}</span>
+      <span class="chip edit" onclick="openEditProfile('${s.id}')">✏️ 改资料</span>
+      <span class="chip" style="cursor:pointer;" onclick="toggleStudent('${s.id}',${active})">${active?'🟢 在用':'⚪ 已停用'}</span>
+    </div>
+    <div style="font-size:12px;color:var(--sub);margin-bottom:12px;word-break:break-all;">打卡链接：<a href="${esc(studentLink(s.username))}" target="_blank">${esc(studentLink(s.username))}</a></div>
+    ${acts}
+    <div id="applyBox"></div>
+    <div style="font-weight:800;color:var(--bamboo);font-size:13px;margin:6px 0 8px;">${esc(s.display_name||'')} 这一周的作业</div>
+    <div id="stuHw"><div class="spin"></div></div>`;
+  renderStudentHomework(s);
+}
+
+async function renderStudentHomework(s){
+  const box=document.getElementById('stuHw'); if(!box) return;
+  const order={MON:1,TUE:2,WED:3,THU:4,FRI:5,SAT:6,SUN:7};
+  if(!s.track_id){
+    box.innerHTML=`<div class="muted" style="font-size:13px;">这个学生用「默认（通用）」作业。想给 ta 专属内容 → 点上面「🔧 单独定制」。</div>`;
+    return;
+  }
+  const {data,error}=await sb.from('track_tasks').select('*').eq('track_id',s.track_id);
+  if(error){box.innerHTML='<div class="muted">读作业失败</div>';return;}
+  const rows=(data||[]).sort((a,b)=>(order[a.day]||9)-(order[b.day]||9));
+  if(s.is_custom){
+    box.innerHTML=rows.map(t=>taskRowHTML(t,true)).join('')||'<div class="muted">这套还没有作业。点上面「📋 从模板套一份」。</div>';
+  } else {
+    const t=TRACKS.find(x=>x.id===s.track_id);
+    box.innerHTML=`<div class="follow-note">这是 ta 跟随的模板「<b>${t?esc(t.name):'—'}</b>」的内容。想改所有跟随者 → 去 <b>📚模板库</b> 改；只想单独给 ta 改 → 点上面「🔧 单独定制」。</div>`+
+      (rows.map(t=>`<div class="ro-day"><span class="d">${DAYCN[t.day]||t.day}</span>
+        <span class="k">${t.type==='text'?'打字':'上传'}</span>
+        <span style="flex:1;font-size:14px;${t.active===false?'opacity:.5;':''}">${esc(t.title)||'(空)'}${t.active===false?' · 休息':''}</span></div>`).join('')||'<div class="muted">这个模板还没有作业。</div>');
+  }
+}
+
+function openEditProfile(id){
+  const s=STUDENTS.find(x=>x.id===id); if(!s) return;
+  const form=document.createElement('div');
+  form.className='card2';
+  form.innerHTML=`<div style="font-weight:800;margin-bottom:8px;">✏️ 改资料</div>
+    <label>名字 Name</label><input id="ep_name" value="${esc(s.display_name||'')}">
+    <div class="grid2" style="margin-top:10px;">
+      <div><label>类型 Type</label><select id="ep_type">${typeOptions(s.stu_type)}</select></div>
+      <div><label>水平 Level</label><select id="ep_level">${levelOptions(s.stu_level)}</select></div>
+    </div>
+    <div class="rowend" style="margin-top:10px;">
+      <button class="btn bamboo sm" onclick="saveProfile('${id}')">💾 保存</button>
+      <button class="btn ghost sm" onclick="renderStudentDetail('${id}')">取消</button>
+    </div>`;
+  document.getElementById('stuDetail').prepend(form);
+}
+async function saveProfile(id){
+  const s=STUDENTS.find(x=>x.id===id);
+  const name=document.getElementById('ep_name').value.trim();
+  const type=document.getElementById('ep_type').value;
+  const level=document.getElementById('ep_level').value;
+  if(!name){toast('名字不能空');return;}
+  const changedTL = s && (s.stu_type!==type || s.stu_level!==level);
+  const {error}=await sb.rpc('admin_upsert_student',{p_id:id,p_display_name:name,p_type:type,p_level:level});
+  if(error){toast('保存失败：'+error.message);return;}
+  if(s && !s.is_custom && changedTL){   // 跟随模板者：类型/水平变了→自动重匹配模板
+    await sb.rpc('admin_follow_template',{p_student_id:id,p_track_id:null});
+  }
+  toast('已保存 ✓');
+  await loadStudents(); selectStudent(id);
+}
+
+async function customize(id){
+  if(!confirm('把 ta 变成「个性化」？会复制当前模板作为底稿，之后你单独改，不影响别人。')) return;
+  const {error}=await sb.rpc('admin_customize_student',{p_student_id:id});
+  if(error){toast('失败：'+error.message);return;}
+  toast('已变个性化 ✓'); await loadStudents(); selectStudent(id);
+}
+
+function openApplyTemplate(id){
+  const box=document.getElementById('applyBox'); if(!box) return;
+  const opts=TRACKS.map(t=>`<option value="${t.id}">${esc(trackLabel(t))}</option>`).join('');
+  if(!opts){ toast('还没有公共模板，先去📚模板库建一个'); return; }
+  box.innerHTML=`<div class="card2"><div style="font-weight:800;margin-bottom:8px;">从哪个模板套一份？（会覆盖 ta 现在的作业）</div>
+    <select id="applySel">${opts}</select>
+    <div class="rowend" style="margin-top:10px;">
+      <button class="btn bamboo sm" onclick="applyTemplate('${id}')">📋 套用</button>
+      <button class="btn ghost sm" onclick="document.getElementById('applyBox').innerHTML=''">取消</button>
+    </div></div>`;
+}
+async function applyTemplate(id){
+  const tid=document.getElementById('applySel').value;
+  if(!confirm('确定用这个模板覆盖 ta 现在的一周作业吗？')) return;
+  const {error}=await sb.rpc('admin_apply_template',{p_student_id:id,p_track_id:tid});
+  if(error){toast('失败：'+error.message);return;}
+  toast('已套用模板 ✓');
+  document.getElementById('applyBox').innerHTML='';
+  const s=STUDENTS.find(x=>x.id===id); if(s) renderStudentHomework(s);
+}
+
+function openAddStudent(){
+  selectedStuId=null; renderStudents();
+  document.getElementById('stuDetail').innerHTML=`<div class="card2"><div style="font-weight:800;margin-bottom:8px;">＋ 加新学生</div>
+    <label>名字 Name（英文名，用来生成登录码）</label><input id="as_name" placeholder="如：Xiaoming">
+    <div class="grid2" style="margin-top:10px;">
+      <div><label>类型 Type</label><select id="as_type"><option value="">选类型</option>${typeOptions('')}</select></div>
+      <div><label>水平 Level</label><select id="as_level"><option value="">选水平</option>${levelOptions('')}</select></div>
+    </div>
+    <div class="rowend" style="margin-top:12px;"><button class="btn cyan sm" onclick="submitAddStudent()">建这个学生</button></div>
+    <div id="as_result"></div></div>`;
+}
+async function submitAddStudent(){
+  const name=document.getElementById('as_name').value.trim();
+  const type=document.getElementById('as_type').value;
+  const level=document.getElementById('as_level').value;
+  if(!name){toast('请填名字');return;}
+  if(!type||!level){toast('请选类型和水平');return;}
+  const {data,error}=await sb.rpc('admin_upsert_student',{p_id:null,p_display_name:name,p_type:type,p_level:level});
+  if(error){toast('加失败：'+error.message);return;}
+  const username=data, link=studentLink(username);
+  const r=document.getElementById('as_result');
+  if(r) r.innerHTML=`<div class="newcode show" style="margin-top:12px;">✅ 建好了：<b>${esc(name)}</b> → 登录码 <b>${esc(username)}</b><br>打卡链接：<br><a href="${esc(link)}" target="_blank">${esc(link)}</a><br><span style="color:var(--sub);font-size:12px;">现在 ta 在「跟随模板」里。想给 ta 专属作业 → 从左边点开 ta → 🔧单独定制。</span></div>`;
+  await loadStudents();
 }
 async function toggleStudent(id,active){
   const {error}=await sb.from('students').update({active:!active}).eq('id',id);
   if(error){toast("操作失败");return;}
-  toast(active?"已停用":"已启用");loadStudents();
-}
-async function addStudent(){
-  const name=document.getElementById('newName').value.trim();
-  if(!name){toast("请填名字");return;}
-  const {data,error}=await sb.rpc('admin_add_student',{p_display_name:name});
-  if(error){toast("加失败："+error.message);return;}
-  const username=data;
-  const link=location.href.replace(/portal\.html.*$/i,'').replace(/[^/]*$/,'')+"checkin.html?u="+encodeURIComponent(username);
-  const nc=document.getElementById('newCode');
-  nc.innerHTML=`✅ 建好了：<b>${esc(name)}</b> → 登录码 <b>${esc(username)}</b><br>打卡链接：<br><a href="${esc(link)}" target="_blank">${esc(link)}</a>`;
-  nc.classList.add('show');
-  document.getElementById('newName').value="";
-  loadStudents();
+  toast(active?"已停用":"已启用");
+  await loadStudents();
+  if(selectedStuId===id) renderStudentDetail(id);
 }
 
 /* ---------- 套餐 / 作业 ---------- */
@@ -495,7 +676,7 @@ function toggleNewTrack(){
   const b=document.getElementById('newTrackBox');
   if(!b.classList.contains('show')){
     document.getElementById('ntType').innerHTML='<option value="">选类型</option>'+Object.keys(TYPE_LABEL).map(k=>`<option value="${k}">${TYPE_LABEL[k]}</option>`).join('');
-    document.getElementById('ntLevel').innerHTML='<option value="">选水平</option>'+Object.keys(LEVEL_LABEL).map(k=>`<option value="${k}">${LEVEL_LABEL[k]}</option>`).join('');
+    document.getElementById('ntLevel').innerHTML='<option value="">选水平</option>'+LEVEL_KEYS.map(k=>`<option value="${k}">${LEVEL_LABEL[k]}</option>`).join('');
   }
   b.classList.toggle('show');
 }
