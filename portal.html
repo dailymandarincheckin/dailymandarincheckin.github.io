@@ -801,12 +801,92 @@ function mediaBlockHTML(t,isTrack){
     inner=`${prev}<div class="rowend" style="margin-top:8px;">
       <button class="btn danger sm" onclick="removeMedia('${t.id}',${isTrack})">移除</button></div>`;
   } else {
-    inner=`<label class="btn cyan sm" for="m_${t.id}" style="display:inline-block;">➕ 加语音 / 图片</label>
-      <input type="file" id="m_${t.id}" accept="audio/*,image/*" style="display:none"
-        onchange="uploadMedia('${t.id}',${isTrack},this)">
-      <div class="hint">传<b>语音</b>→学生看到播放器（听力、跟读、拼音题用）。<br>传<b>图片</b>→学生看到图（看图说话用）。<br>用手机录一段直接传就行，最大 50MB。</div>`;
+    const st=TREC[t.id];
+    if(st && st.on){
+      inner=`<button class="btn danger sm" onclick="tStopRec('${t.id}')">⏹ 录音中 <span id="trt_${t.id}">0:00</span> · 点一下停</button>`;
+    } else if(st && st.url){
+      inner=`<audio controls src="${st.url}"></audio>
+        <div class="rowend" style="margin-top:8px;">
+          <button class="btn bamboo sm" onclick="tUseRec('${t.id}',${isTrack})">✓ 就用这段</button>
+          <button class="btn ghost sm" onclick="tStartRec('${t.id}',${isTrack})">🔄 重录</button>
+        </div>`;
+    } else {
+      inner=`<div class="rowend" style="justify-content:flex-start;">
+          <button class="btn cyan sm" onclick="tStartRec('${t.id}',${isTrack})">🎙️ 直接录一段</button>
+          <label class="btn ghost sm" for="m_${t.id}" style="display:inline-block;">📁 选文件</label>
+          <input type="file" id="m_${t.id}" accept="audio/*,image/*" style="display:none"
+            onchange="uploadMedia('${t.id}',${isTrack},this)">
+        </div>
+        <div class="hint"><b>直接录一段</b>＝对着电脑麦克风说，不用手机传来传去。<br>
+        传<b>语音</b>→学生看到大喇叭按钮（听力、跟读、拼音题用）。<br>传<b>图片</b>→学生看到图（看图说话用）。最大 50MB。</div>`;
+    }
   }
   return `<div class="mediabox"><label>🔊 语音 / 🖼️ 图片（可空）</label>${inner}</div>`;
+}
+
+/* ---------- 老师直接录音 ---------- */
+const TREC={};
+function tCanRec(){ return !!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&window.MediaRecorder); }
+function tMime(){
+  for(const m of ['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus']){
+    try{ if(MediaRecorder.isTypeSupported(m)) return m; }catch(e){}
+  }
+  return "";
+}
+function tExt(type){
+  const t=String(type||"");
+  if(/mp4|m4a|aac/.test(t)) return "m4a";
+  if(/ogg/.test(t)) return "ogg";
+  if(/wav/.test(t)) return "wav";
+  return "webm";
+}
+async function tStartRec(id,isTrack){
+  if(!tCanRec()){ toast("这个浏览器不能录音，请用「选文件」"); return; }
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    const mime=tMime();
+    const mr= mime? new MediaRecorder(stream,{mimeType:mime}) : new MediaRecorder(stream);
+    const chunks=[];
+    mr.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); };
+    mr.onstop=()=>{
+      try{ stream.getTracks().forEach(x=>x.stop()); }catch(e){}
+      const st=TREC[id]||{};
+      const type=mr.mimeType||mime||"audio/webm";
+      if(st.url) URL.revokeObjectURL(st.url);
+      st.blob=new Blob(chunks,{type}); st.url=URL.createObjectURL(st.blob); st.on=false;
+      clearInterval(st.timer); TREC[id]=st; refreshTaskViews();
+    };
+    if(TREC[id]&&TREC[id].url) URL.revokeObjectURL(TREC[id].url);
+    TREC[id]={mr,on:true,t0:Date.now(),timer:null,blob:null,url:null};
+    mr.start();
+    TREC[id].timer=setInterval(()=>{
+      const el=document.getElementById('trt_'+id);
+      const ms=Date.now()-TREC[id].t0;
+      if(el) el.textContent=Math.floor(ms/60000)+":"+String(Math.floor(ms/1000)%60).padStart(2,"0");
+      if(ms>5*60*1000) tStopRec(id);
+    },250);
+    refreshTaskViews();
+  }catch(e){ toast("不能录音：请允许使用麦克风"); }
+}
+function tStopRec(id){
+  const st=TREC[id];
+  if(st&&st.mr&&st.on){ try{ st.mr.stop(); }catch(e){ st.on=false; refreshTaskViews(); } }
+}
+async function tUseRec(id,isTrack){
+  const st=TREC[id]; if(!st||!st.blob){ toast("还没有录音"); return; }
+  toast("上传中…请等一下");
+  const ext=tExt(st.blob.type);
+  const path=`task-media/${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
+  const up=await sb.storage.from('uploads').upload(path,st.blob,{cacheControl:'3600',upsert:false,contentType:st.blob.type});
+  if(up.error){ toast("上传失败："+up.error.message); return; }
+  const url=sb.storage.from('uploads').getPublicUrl(path).data.publicUrl;
+  const table=isTrack?'track_tasks':'task_templates';
+  const {error}=await sb.from(table).update({media_url:url}).eq('id',id);
+  if(error){ toast("保存失败："+error.message); return; }
+  if(st.url) URL.revokeObjectURL(st.url);
+  delete TREC[id];
+  toast("加好了 ✓ 学生就能听到了");
+  refreshTaskViews();
 }
 async function uploadMedia(id,isTrack,input){
   const f=input.files&&input.files[0]; if(!f) return;
