@@ -97,6 +97,7 @@
     padding:15px;font-weight:800;font-size:16px;box-shadow:4px 4px 0 var(--ink);cursor:pointer;
     font-family:inherit;transition:.12s;}
   .recbtn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink);}
+  .recbtn .sub{display:block;font-size:12.5px;font-weight:600;opacity:.9;margin-top:2px;}
   .recbtn.rec{background:#c0392b;animation:pulsered 1.1s infinite;}
   @keyframes pulsered{50%{opacity:.7;}}
   @media (prefers-reduced-motion:reduce){.recbtn.rec{animation:none;}}
@@ -392,7 +393,7 @@ function cardHTML(t,done){
       <div id="recui_${day}"></div>
       <input type="file" id="file_${day}" style="display:none" onchange="pickFile('${day}')">
       <div class="fileName" id="fname_${day}"></div>
-      <div class="orfile">或 <label for="file_${day}">选文件上传（照片／已录好的）</label></div>
+      <div class="orfile">或 Or <label for="file_${day}">选文件上传（照片／已录好的）· Choose a file (photo / recorded)</label></div>
       <button class="btn" id="btn_${day}" onclick="submitUpload('${day}')">Submit &amp; Check in · 提交打卡</button>`;
   } else {
     actionHTML=`
@@ -492,22 +493,28 @@ function renderRecUI(day){
   const box=document.getElementById('recui_'+day); if(!box) return;
   const st=REC[day]||{};
   if(!canRecord()){
-    box.innerHTML=`<div class="fileName">这个浏览器不支持直接录音，请用下面的「选文件上传」。</div>`;
+    box.innerHTML=`<div class="fileName">这个浏览器不支持直接录音，请用下面的「选文件上传」。<br>
+      This browser can't record — please use "choose a file" below.</div>`;
     return;
   }
   if(st.warm){
     box.innerHTML=`<button class="recbtn" style="background:var(--sub);" onclick="stopRec('${day}')">
-      ⏳ 准备中… 先别说话</button>`;
+      <span>⏳ 准备中… 先别说话
+      <span class="sub">Getting ready — don't speak yet</span></span></button>`;
   } else if(st.on){
     box.innerHTML=`<button class="recbtn rec" onclick="stopRec('${day}')">
-      ⏹ 请说！录音中 <span id="rt_${day}">0:00</span> · 点一下停</button>`;
+      <span>⏹ 请说！Speak now &nbsp;<span id="rt_${day}">0:00</span>
+      <span class="sub">点一下停 · Tap to stop</span></span></button>`;
   } else if(st.url){
     box.innerHTML=`<button class="recbtn" style="background:var(--bamboo);" onclick="playMine('${day}')">
-        ▶️ 听一下我的录音 <span id="mylen_${day}"></span></button>
+        <span>▶️ 听一下我的录音
+        <span class="sub">Play my recording</span></span></button>
       <audio id="my_${day}" src="${st.url}" preload="metadata"></audio>
-      <div class="recrow"><button class="minibtn" onclick="startRec('${day}')">🔄 重录</button></div>`;
+      <div class="recrow"><button class="minibtn" onclick="startRec('${day}')">🔄 重录 Record again</button></div>`;
   } else {
-    box.innerHTML=`<button class="recbtn" onclick="startRec('${day}')">🎙️ 点一下开始录音 Record</button>`;
+    box.innerHTML=`<button class="recbtn" onclick="startRec('${day}')">
+      <span>🎙️ 点一下开始录音
+      <span class="sub">Tap to record</span></span></button>`;
   }
 }
 async function startRec(day){
@@ -516,15 +523,27 @@ async function startRec(day){
     const mime=pickMime();
     const mr= mime? new MediaRecorder(stream,{mimeType:mime}) : new MediaRecorder(stream);
     const chunks=[];
-    mr.ondataavailable=e=>{ if(e.data && e.data.size) chunks.push(e.data); };
+    let live=false, onLive=null;
+    mr.ondataavailable=e=>{
+      if(e.data && e.data.size){
+        chunks.push(e.data);
+        if(!live){ live=true; if(onLive) onLive(); }   // 确认「声音真的进来了」
+      }
+    };
     mr.onstop=()=>{
       try{ stream.getTracks().forEach(t=>t.stop()); }catch(e){}
       const st=REC[day]||{};
+      clearInterval(st.timer);
       const type=mr.mimeType||mime||"audio/webm";
       const blob=new Blob(chunks,{type});
+      if(blob.size<1200){                  // 基本等于没录到：告诉学生，别默默传个空的
+        st.on=false; delete REC[day]; renderRecUI(day);
+        toast("好像没录到声音，请再试一次 · No sound, please try again");
+        return;
+      }
       if(st.url) URL.revokeObjectURL(st.url);
       st.blob=blob; st.url=URL.createObjectURL(blob); st.on=false;
-      clearInterval(st.timer); REC[day]=st;
+      REC[day]=st;
       delete fileStore[day];           // 录音优先于选的文件
       const fn=document.getElementById('fname_'+day); if(fn) fn.textContent="";
       renderRecUI(day);
@@ -533,15 +552,21 @@ async function startRec(day){
     REC[day]={mr,stream,on:true,warm:true,t0:0,timer:null,blob:null,url:null};
     renderRecUI(day);                       // 先显示「准备中…先别说话」
 
-    // iPhone/Safari 的麦克风从授权到真的出声音有零点几秒延迟。
-    // 不等这一下就开录，学生开口的前半句会丢。
-    await new Promise(r=>setTimeout(r,450));
+    // 立刻开始录 —— 就算学生早开口也不会丢。
+    mr.start(250);
+    // 但要等到「真的有声音数据进来」才叫学生说话。
+    // 固定等一个时间不靠谱：第一次用麦克风时，电脑要初始化设备，会慢很多。
+    await new Promise(res=>{
+      if(live) return res();
+      onLive=res;
+      setTimeout(res,3000);                 // 兜底：最多等 3 秒
+    });
     const st=REC[day];
     if(!st || !st.on){                      // 等待期间被取消了
+      try{ mr.state!=='inactive' && mr.stop(); }catch(e){}
       try{ stream.getTracks().forEach(t=>t.stop()); }catch(e){}
       return;
     }
-    mr.start(500);                          // 带 timeslice：iOS 上分段交数据更可靠
     st.warm=false; st.t0=Date.now();
     st.timer=setInterval(()=>{
       const s=REC[day]; if(!s) return;

@@ -849,24 +849,47 @@ async function tStartRec(id,isTrack){
     const mime=tMime();
     const mr= mime? new MediaRecorder(stream,{mimeType:mime}) : new MediaRecorder(stream);
     const chunks=[];
-    mr.ondataavailable=e=>{ if(e.data&&e.data.size) chunks.push(e.data); };
+    let live=false, onLive=null;
+    mr.ondataavailable=e=>{
+      if(e.data&&e.data.size){
+        chunks.push(e.data);
+        if(!live){ live=true; if(onLive) onLive(); }   // 确认声音真的进来了
+      }
+    };
     mr.onstop=()=>{
       try{ stream.getTracks().forEach(x=>x.stop()); }catch(e){}
       const st=TREC[id]||{};
+      clearInterval(st.timer);
       const type=mr.mimeType||mime||"audio/webm";
+      const blob=new Blob(chunks,{type});
+      if(blob.size<1200){                   // 基本等于没录到
+        st.on=false; delete TREC[id]; refreshTaskViews();
+        toast("好像没录到声音，请再试一次");
+        return;
+      }
       if(st.url) URL.revokeObjectURL(st.url);
-      st.blob=new Blob(chunks,{type}); st.url=URL.createObjectURL(st.blob); st.on=false;
-      clearInterval(st.timer); TREC[id]=st; refreshTaskViews();
+      st.blob=blob; st.url=URL.createObjectURL(blob); st.on=false;
+      TREC[id]=st; refreshTaskViews();
     };
     if(TREC[id]&&TREC[id].url) URL.revokeObjectURL(TREC[id].url);
     TREC[id]={mr,stream,on:true,warm:true,t0:0,timer:null,blob:null,url:null};
     refreshTaskViews();                     // 先显示「准备中…先别说话」
 
-    // 麦克风从授权到真的出声音有延迟，不等就录会丢开头（iPhone 上尤其明显）
-    await new Promise(r=>setTimeout(r,450));
+    // 立刻开录，早说也不会丢
+    mr.start(250);
+    // 等到「真的有声音数据进来」才叫人说话。
+    // 固定等一个时间不行：第一次用麦克风时电脑要初始化设备，会慢很多（就是你遇到的「第一次录不到」）。
+    await new Promise(res=>{
+      if(live) return res();
+      onLive=res;
+      setTimeout(res,3000);                 // 兜底：最多等 3 秒
+    });
     const st=TREC[id];
-    if(!st || !st.on){ try{ stream.getTracks().forEach(x=>x.stop()); }catch(e){} return; }
-    mr.start(500);                          // 带 timeslice，更可靠
+    if(!st || !st.on){
+      try{ mr.state!=='inactive' && mr.stop(); }catch(e){}
+      try{ stream.getTracks().forEach(x=>x.stop()); }catch(e){}
+      return;
+    }
     st.warm=false; st.t0=Date.now();
     st.timer=setInterval(()=>{
       const s=TREC[id]; if(!s) return;
