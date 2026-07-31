@@ -802,8 +802,10 @@ function mediaBlockHTML(t,isTrack){
       <button class="btn danger sm" onclick="removeMedia('${t.id}',${isTrack})">移除</button></div>`;
   } else {
     const st=TREC[t.id];
-    if(st && st.on){
-      inner=`<button class="btn danger sm" onclick="tStopRec('${t.id}')">⏹ 录音中 <span id="trt_${t.id}">0:00</span> · 点一下停</button>`;
+    if(st && st.warm){
+      inner=`<button class="btn ghost sm" onclick="tStopRec('${t.id}')">⏳ 准备中… 先别说话</button>`;
+    } else if(st && st.on){
+      inner=`<button class="btn danger sm" onclick="tStopRec('${t.id}')">⏹ 请说！录音中 <span id="trt_${t.id}">0:00</span> · 点一下停</button>`;
     } else if(st && st.url){
       inner=`<audio controls src="${st.url}"></audio>
         <div class="rowend" style="margin-top:8px;">
@@ -857,20 +859,37 @@ async function tStartRec(id,isTrack){
       clearInterval(st.timer); TREC[id]=st; refreshTaskViews();
     };
     if(TREC[id]&&TREC[id].url) URL.revokeObjectURL(TREC[id].url);
-    TREC[id]={mr,on:true,t0:Date.now(),timer:null,blob:null,url:null};
-    mr.start();
-    TREC[id].timer=setInterval(()=>{
+    TREC[id]={mr,stream,on:true,warm:true,t0:0,timer:null,blob:null,url:null};
+    refreshTaskViews();                     // 先显示「准备中…先别说话」
+
+    // 麦克风从授权到真的出声音有延迟，不等就录会丢开头（iPhone 上尤其明显）
+    await new Promise(r=>setTimeout(r,450));
+    const st=TREC[id];
+    if(!st || !st.on){ try{ stream.getTracks().forEach(x=>x.stop()); }catch(e){} return; }
+    mr.start(500);                          // 带 timeslice，更可靠
+    st.warm=false; st.t0=Date.now();
+    st.timer=setInterval(()=>{
+      const s=TREC[id]; if(!s) return;
       const el=document.getElementById('trt_'+id);
-      const ms=Date.now()-TREC[id].t0;
+      const ms=Date.now()-s.t0;
       if(el) el.textContent=Math.floor(ms/60000)+":"+String(Math.floor(ms/1000)%60).padStart(2,"0");
       if(ms>5*60*1000) tStopRec(id);
     },250);
-    refreshTaskViews();
-  }catch(e){ toast("不能录音：请允许使用麦克风"); }
+    refreshTaskViews();                     // 变成「请说！录音中」
+  }catch(e){ delete TREC[id]; refreshTaskViews(); toast("不能录音：请允许使用麦克风"); }
 }
 function tStopRec(id){
   const st=TREC[id];
-  if(st&&st.mr&&st.on){ try{ st.mr.stop(); }catch(e){ st.on=false; refreshTaskViews(); } }
+  if(!st || !st.on) return;
+  if(st.warm){                              // 热身期间取消
+    st.on=false;
+    try{ st.stream && st.stream.getTracks().forEach(x=>x.stop()); }catch(e){}
+    delete TREC[id]; refreshTaskViews(); return;
+  }
+  try{
+    if(st.mr.state==='recording'){ st.mr.requestData(); }
+    st.mr.stop();
+  }catch(e){ st.on=false; refreshTaskViews(); }
 }
 async function tUseRec(id,isTrack){
   const st=TREC[id]; if(!st||!st.blob){ toast("还没有录音"); return; }

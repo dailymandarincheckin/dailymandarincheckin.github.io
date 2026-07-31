@@ -62,6 +62,8 @@
   .rowlabel span{font-size:12px;font-weight:700;letter-spacing:2px;color:var(--sub);text-transform:uppercase;}
 
   /* ===== 合并后的任务卡片 ===== */
+  /* 卡片之间留空隙（手机上尤其重要，不然会连成一片） */
+  #taskArea{display:flex;flex-direction:column;gap:22px;}
   .taskcard{background:var(--card);border:2.5px solid var(--ink);border-radius:20px;padding:24px 22px;
     box-shadow:6px 6px 0 rgba(42,38,34,.14);position:relative;animation:tileIn .45s ease both;}
   @keyframes tileIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
@@ -493,9 +495,12 @@ function renderRecUI(day){
     box.innerHTML=`<div class="fileName">这个浏览器不支持直接录音，请用下面的「选文件上传」。</div>`;
     return;
   }
-  if(st.on){
+  if(st.warm){
+    box.innerHTML=`<button class="recbtn" style="background:var(--sub);" onclick="stopRec('${day}')">
+      ⏳ 准备中… 先别说话</button>`;
+  } else if(st.on){
     box.innerHTML=`<button class="recbtn rec" onclick="stopRec('${day}')">
-      ⏹ 录音中 <span id="rt_${day}">0:00</span> · 点一下停</button>`;
+      ⏹ 请说！录音中 <span id="rt_${day}">0:00</span> · 点一下停</button>`;
   } else if(st.url){
     box.innerHTML=`<button class="recbtn" style="background:var(--bamboo);" onclick="playMine('${day}')">
         ▶️ 听一下我的录音 <span id="mylen_${day}"></span></button>
@@ -525,21 +530,43 @@ async function startRec(day){
       renderRecUI(day);
     };
     if(REC[day] && REC[day].url) URL.revokeObjectURL(REC[day].url);
-    REC[day]={mr,on:true,t0:Date.now(),timer:null,blob:null,url:null};
-    mr.start();
-    REC[day].timer=setInterval(()=>{
+    REC[day]={mr,stream,on:true,warm:true,t0:0,timer:null,blob:null,url:null};
+    renderRecUI(day);                       // 先显示「准备中…先别说话」
+
+    // iPhone/Safari 的麦克风从授权到真的出声音有零点几秒延迟。
+    // 不等这一下就开录，学生开口的前半句会丢。
+    await new Promise(r=>setTimeout(r,450));
+    const st=REC[day];
+    if(!st || !st.on){                      // 等待期间被取消了
+      try{ stream.getTracks().forEach(t=>t.stop()); }catch(e){}
+      return;
+    }
+    mr.start(500);                          // 带 timeslice：iOS 上分段交数据更可靠
+    st.warm=false; st.t0=Date.now();
+    st.timer=setInterval(()=>{
+      const s=REC[day]; if(!s) return;
       const el=document.getElementById('rt_'+day);
-      if(el) el.textContent=fmtSec(Date.now()-REC[day].t0);
-      if(Date.now()-REC[day].t0>5*60*1000) stopRec(day);   // 最长 5 分钟，防止忘记停
+      if(el) el.textContent=fmtSec(Date.now()-s.t0);
+      if(Date.now()-s.t0>5*60*1000) stopRec(day);   // 最长 5 分钟，防止忘记停
     },250);
-    renderRecUI(day);
+    renderRecUI(day);                       // 变成「请说！录音中」
   }catch(e){
+    delete REC[day]; renderRecUI(day);
     toast("不能录音：请允许使用麦克风 Allow microphone");
   }
 }
 function stopRec(day){
   const st=REC[day];
-  if(st && st.mr && st.on){ try{ st.mr.stop(); }catch(e){ st.on=false; renderRecUI(day); } }
+  if(!st || !st.on) return;
+  if(st.warm){                              // 还在热身就取消：直接丢掉
+    st.on=false;
+    try{ st.stream && st.stream.getTracks().forEach(t=>t.stop()); }catch(e){}
+    delete REC[day]; renderRecUI(day); return;
+  }
+  try{
+    if(st.mr.state==='recording'){ st.mr.requestData(); }   // 先把最后一段吐出来
+    st.mr.stop();
+  }catch(e){ st.on=false; renderRecUI(day); }
 }
 function playMine(day){
   const a=document.getElementById('my_'+day); if(!a) return;
