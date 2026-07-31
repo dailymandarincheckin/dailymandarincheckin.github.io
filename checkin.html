@@ -74,6 +74,13 @@
   .tc-title{font-family:"Poppins",sans-serif;font-size:18px;font-weight:700;line-height:1.2;}
   .tc-title .cn{font-weight:900;}
   .tc-desc{font-size:13.5px;color:#5a534a;line-height:1.6;margin-bottom:6px;}
+  /* 老师放的语音 / 图片 */
+  .tc-media{margin:10px 0;}
+  .tc-media audio{width:100%;display:block;}
+  .tc-media img{max-width:100%;border-radius:10px;border:2.5px solid var(--ink);display:block;}
+  .tc-media .medialbl{font-size:11px;font-weight:700;color:var(--cyan);letter-spacing:.5px;margin-bottom:5px;}
+  .tc-media .filelink{display:inline-block;background:var(--cream2);border:2px solid var(--ink);
+    border-radius:10px;padding:8px 12px;font-size:13px;font-weight:700;text-decoration:none;color:var(--ink);}
   .tc-example{background:var(--cream2);border-radius:10px;padding:10px 12px;margin:10px 0;}
   .tc-example .ex-zh{font-weight:700;font-size:15px;}
   .tc-example .ex-py{color:var(--cyan);font-size:12px;font-style:italic;margin-top:2px;}
@@ -329,6 +336,20 @@ function cardHTML(t,done){
     exampleHTML=`<div class="tc-example"><div class="ex-zh">${t.example}</div>`+
       (t.pinyin?`<div class="ex-py">${t.pinyin}</div>`:``)+`</div>`;
   }
+  /* 老师放的语音 / 图片：按文件类型自动判断怎么显示 */
+  let mediaHTML="";
+  if(t.media_url){
+    const u=String(t.media_url), low=u.toLowerCase();
+    if(/\.(mp3|m4a|wav|ogg|aac|webm)($|\?)/.test(low)){
+      mediaHTML=`<div class="tc-media"><div class="medialbl">🔊 先听这段 Listen first</div>
+        <audio controls preload="none" src="${u}"></audio></div>`;
+    } else if(/\.(jpg|jpeg|png|gif|webp|heic|heif)($|\?)/.test(low)){
+      mediaHTML=`<div class="tc-media"><div class="medialbl">🖼️ 看这张图 Look at this</div>
+        <img src="${u}" alt=""></div>`;
+    } else {
+      mediaHTML=`<div class="tc-media"><a class="filelink" href="${u}" target="_blank" rel="noopener">📎 打开附件 Open file</a></div>`;
+    }
+  }
   let actionHTML="";
   if(isDone){
     actionHTML=`<div class="done-banner">✓ 已完成 Done!</div>
@@ -353,6 +374,7 @@ function cardHTML(t,done){
       </div>
     </div>
     <div class="tc-desc">${t.desc||""}</div>
+    ${mediaHTML}
     ${exampleHTML}
     <span class="typetag ${isUpload?'upload':'text'}">${isUpload?'📎 Upload file 上传':'⌨️ Type answer 打字'}</span>
     <div class="tc-action">${actionHTML}</div>

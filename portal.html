@@ -117,6 +117,12 @@
   .task-row{background:var(--card);border:2.5px solid var(--ink);border-radius:14px;padding:14px 16px;margin-bottom:12px;box-shadow:4px 4px 0 rgba(42,38,34,.1);}
   .task-row .dtag{display:inline-block;font-family:"Poppins",sans-serif;font-weight:800;font-size:12px;letter-spacing:1px;
     background:var(--ink);color:#fff;padding:3px 10px;border-radius:8px;margin-bottom:10px;}
+  .mediabox{margin-top:12px;border:2px dashed var(--line);border-radius:12px;padding:11px 13px;background:rgba(46,143,176,.06);}
+  .mediabox audio{width:100%;display:block;}
+  .mediabox img{max-width:220px;border:2px solid var(--ink);border-radius:10px;display:block;}
+  .mediabox .hint{font-size:12px;color:var(--sub);margin-top:6px;line-height:1.5;}
+  .mtag{font-size:11px;font-weight:800;border:2px solid var(--ink);border-radius:6px;padding:0 6px;
+    background:var(--cyan);color:#fff;margin-left:6px;}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
   @media(max-width:560px){.grid2{grid-template-columns:1fr;}}
 
@@ -573,9 +579,13 @@ async function renderStudentHomework(s){
   } else {
     const t=TRACKS.find(x=>x.id===s.track_id);
     box.innerHTML=`<div class="follow-note">这是 ta 跟随的模板「<b>${t?esc(t.name):'—'}</b>」的内容。想改所有跟随者 → 去 <b>📚模板库</b> 改；只想单独给 ta 改 → 点上面「🔧 单独定制」。</div>`+
-      (rows.map(t=>`<div class="ro-day"><span class="d">${DAYCN[t.day]||t.day}</span>
+      (rows.map(t=>{
+        const k=mediaKind(t.media_url);
+        const mt = k==='audio'?'<span class="mtag">🔊 语音</span>' : k==='image'?'<span class="mtag">🖼️ 图</span>' : '';
+        return `<div class="ro-day"><span class="d">${DAYCN[t.day]||t.day}</span>
         <span class="k">${t.type==='text'?'打字':'上传'}</span>
-        <span style="flex:1;font-size:14px;${t.active===false?'opacity:.5;':''}">${esc(t.title)||'(空)'}${t.active===false?' · 休息':''}</span></div>`).join('')||'<div class="muted">这个模板还没有作业。</div>');
+        <span style="flex:1;font-size:14px;${t.active===false?'opacity:.5;':''}">${esc(t.title)||'(空)'}${t.active===false?' · 休息':''}${mt}</span></div>`;
+      }).join('')||'<div class="muted">这个模板还没有作业。</div>');
   }
 }
 
@@ -768,8 +778,63 @@ function taskRowHTML(t,isTrack){
       <div><label>例句 Example (可空)</label><input id="t_ex_${t.id}" value="${esc(t.example)}"></div>
       <div><label>拼音 Pinyin (可空)</label><input id="t_py_${t.id}" value="${esc(t.pinyin)}"></div>
     </div>
+    ${mediaBlockHTML(t,isTrack)}
     <div class="rowend"><button class="btn sm" onclick="saveTask('${t.id}',${isTrack})">💾 保存这条</button></div>
   </div>`;
+}
+
+/* ---------- 作业的语音 / 图片 ---------- */
+function mediaKind(u){
+  const low=String(u||'').toLowerCase();
+  if(/\.(mp3|m4a|wav|ogg|aac|webm)($|\?)/.test(low)) return 'audio';
+  if(/\.(jpg|jpeg|png|gif|webp|heic|heif)($|\?)/.test(low)) return 'image';
+  return u?'file':'';
+}
+function mediaBlockHTML(t,isTrack){
+  const u=t.media_url||'';
+  let inner;
+  if(u){
+    const k=mediaKind(u);
+    const prev = k==='audio' ? `<audio controls preload="none" src="${esc(u)}"></audio>`
+               : k==='image' ? `<img src="${esc(u)}" alt="">`
+               : `<a href="${esc(u)}" target="_blank" rel="noopener">📎 打开附件</a>`;
+    inner=`${prev}<div class="rowend" style="margin-top:8px;">
+      <button class="btn danger sm" onclick="removeMedia('${t.id}',${isTrack})">移除</button></div>`;
+  } else {
+    inner=`<label class="btn cyan sm" for="m_${t.id}" style="display:inline-block;">➕ 加语音 / 图片</label>
+      <input type="file" id="m_${t.id}" accept="audio/*,image/*" style="display:none"
+        onchange="uploadMedia('${t.id}',${isTrack},this)">
+      <div class="hint">传<b>语音</b>→学生看到播放器（听力、跟读、拼音题用）。<br>传<b>图片</b>→学生看到图（看图说话用）。<br>用手机录一段直接传就行，最大 50MB。</div>`;
+  }
+  return `<div class="mediabox"><label>🔊 语音 / 🖼️ 图片（可空）</label>${inner}</div>`;
+}
+async function uploadMedia(id,isTrack,input){
+  const f=input.files&&input.files[0]; if(!f) return;
+  if(f.size>50*1024*1024){ toast("文件太大，最多 50MB"); input.value=""; return; }
+  toast("上传中…请等一下");
+  const ext=((f.name.split('.').pop())||'bin').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,5);
+  const path=`task-media/${Date.now()}_${Math.random().toString(36).slice(2,8)}.${ext}`;
+  const up=await sb.storage.from('uploads').upload(path,f,{cacheControl:'3600',upsert:false});
+  if(up.error){ toast("上传失败："+up.error.message); input.value=""; return; }
+  const url=sb.storage.from('uploads').getPublicUrl(path).data.publicUrl;
+  const table=isTrack?'track_tasks':'task_templates';
+  const {error}=await sb.from(table).update({media_url:url}).eq('id',id);
+  if(error){ toast("保存失败："+error.message); return; }
+  toast("加好了 ✓ 学生就能听/看到了");
+  refreshTaskViews();
+}
+async function removeMedia(id,isTrack){
+  if(!confirm("移除这条作业的语音/图片？")) return;
+  const table=isTrack?'track_tasks':'task_templates';
+  const {error}=await sb.from(table).update({media_url:null}).eq('id',id);
+  if(error){ toast("失败："+error.message); return; }
+  toast("已移除"); refreshTaskViews();
+}
+function refreshTaskViews(){
+  const p=document.querySelector('.panel.active'); if(!p) return;
+  if(p.id==='panel-students' && selectedStuId){
+    const s=STUDENTS.find(x=>x.id===selectedStuId); if(s) renderStudentHomework(s);
+  } else if(p.id==='panel-tasks'){ renderTasksTab(); }
 }
 async function saveTask(id,isTrack){
   const payload={
