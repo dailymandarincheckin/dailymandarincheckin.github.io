@@ -57,6 +57,14 @@
   .quote .py{color:var(--cyan);font-size:13px;margin-top:5px;letter-spacing:.3px;font-style:italic;}
   .quote .en{color:var(--sub);font-size:13.5px;margin-top:6px;line-height:1.5;}
 
+  /* ===== 中英分层：中文为主（深、大），英文为辅（浅、小） =====
+     规则：一律【先中文，后英文】 */
+  .eng{color:var(--sub);font-weight:600;font-size:.85em;letter-spacing:.2px;}
+  .eng::before{content:" ";}
+  /* 深色按钮上的英文改用半透明白，才看得清 */
+  .btn .eng,.playbtn .eng,.recbtn .eng,.cbtn .eng,.file-btn .eng,.done-banner .eng{color:rgba(255,255,255,.8);}
+  .done-banner .eng{color:rgba(90,138,74,.75);}
+  .minibtn .eng,.undo .eng,.orfile .eng,.peek .eng,.typetag .eng{color:var(--sub);}
   .rowlabel{display:flex;align-items:center;gap:10px;margin:0 2px 16px;}
   .rowlabel .dot{width:9px;height:9px;border-radius:50%;background:var(--bamboo);}
   .rowlabel span{font-size:12px;font-weight:700;letter-spacing:2px;color:var(--sub);text-transform:uppercase;}
@@ -198,14 +206,14 @@
   <div class="gate-card" id="gateCard">
     <div class="spinner"></div>
     <h1>正在打开你的打卡本…</h1>
-    <p>Loading your check-in page…</p>
+    <p class="eng">Loading your check-in page…</p>
   </div>
 </div>
 
 <div id="appView">
   <div class="wrap">
     <div class="masthead">
-      <h2>Daily <span class="cn">打卡</span> Check-in</h2>
+      <h2><span class="cn">每日打卡</span> <span class="eng">Daily Check-in</span></h2>
       <div class="whoami" id="whoami"></div>
     </div>
 
@@ -217,16 +225,16 @@
     </div>
 
     <div class="rowlabel">
-      <span class="dot"></span><span>Today's Task</span>
+      <span class="dot"></span><span>今天的作业 · Today's Task</span>
     </div>
 
     <div id="taskArea"></div>
 
     <div class="colophon">
       <div class="proverb">
-        <div class="pzh">一天一点，水滴石穿。</div>
-        <div class="ppy">Yī tiān yī diǎn, shuǐ dī shí chuān.</div>
-        <div class="pen">A little each day — dripping water bores through stone.</div>
+        <div class="pzh" id="pZh">一天一点，水滴石穿。</div>
+        <div class="ppy" id="pPy">Yī tiān yī diǎn, shuǐ dī shí chuān.</div>
+        <div class="pen" id="pEn">A little each day — dripping water bores through stone.</div>
       </div>
     </div>
   </div>
@@ -304,9 +312,29 @@ const QUOTES=[
   {zh:"活到老，学到老。",py:"Huó dào lǎo, xué dào lǎo.",en:"You're never too old to learn."},
   {zh:"万事开头难。",py:"Wànshì kāitóu nán.",en:"Every beginning is hard — the start is the toughest part."},
   {zh:"熟能生巧。",py:"Shú néng shēng qiǎo.",en:"Practice makes perfect."},
-  {zh:"喝奶茶要加珍珠，学中文要加练习。",py:"...yào jiā liànxí.",en:"Milk tea needs pearls; Chinese needs practice. 🧋"},
+  {zh:"喝奶茶要加珍珠，学中文要加练习。",py:"Hē nǎichá yào jiā zhēnzhū, xué Zhōngwén yào jiā liànxí.",en:"Milk tea needs pearls; Chinese needs practice. 🧋"},
   {zh:"你今天很酷。",py:"Nǐ jīntiān hěn kù.",en:"You're pretty cool today. 😎"},
-  {zh:"你比昨天更厉害了。",py:"Nǐ bǐ zuótiān gèng lìhai le.",en:"You're better than you were yesterday."}
+  {zh:"你比昨天更厉害了。",py:"Nǐ bǐ zuótiān gèng lìhai le.",en:"You're better than you were yesterday."},
+  {zh:"不怕慢，只怕站。",py:"Bú pà màn, zhǐ pà zhàn.",en:"Don't fear going slow — fear standing still."},
+  {zh:"说错了也没关系。",py:"Shuō cuò le yě méi guānxi.",en:"Making mistakes is completely fine."},
+  {zh:"一步一步来。",py:"Yí bù yí bù lái.",en:"One step at a time."},
+  {zh:"你已经开始了，这最难。",py:"Nǐ yǐjīng kāishǐ le, zhè zuì nán.",en:"You've already started — that's the hardest part."},
+  {zh:"每天一点点，就是很多。",py:"Měitiān yìdiǎndiǎn, jiùshì hěn duō.",en:"A little every day adds up to a lot."},
+  {zh:"今天的你，很努力。",py:"Jīntiān de nǐ, hěn nǔlì.",en:"You worked hard today."},
+  {zh:"敢开口，就已经赢了。",py:"Gǎn kāikǒu, jiù yǐjīng yíng le.",en:"If you dare to speak, you've already won."}
+];
+/* 页尾的谚语（本来是写死的，现在每天换一句） */
+const PROVERBS=[
+  {zh:"一天一点，水滴石穿。",py:"Yī tiān yī diǎn, shuǐ dī shí chuān.",en:"A little each day — dripping water bores through stone."},
+  {zh:"千里之行，始于足下。",py:"Qiān lǐ zhī xíng, shǐ yú zú xià.",en:"A journey of a thousand miles begins with one step."},
+  {zh:"只要功夫深，铁杵磨成针。",py:"Zhǐyào gōngfu shēn, tiěchǔ mó chéng zhēn.",en:"With enough effort, an iron rod can be ground into a needle."},
+  {zh:"学如逆水行舟，不进则退。",py:"Xué rú nì shuǐ xíng zhōu, bú jìn zé tuì.",en:"Learning is like rowing upstream — stop and you drift back."},
+  {zh:"好的开始是成功的一半。",py:"Hǎo de kāishǐ shì chénggōng de yíbàn.",en:"A good start is half the success."},
+  {zh:"积少成多。",py:"Jī shǎo chéng duō.",en:"Many small things add up to a lot."},
+  {zh:"温故而知新。",py:"Wēn gù ér zhī xīn.",en:"Review the old to understand the new."},
+  {zh:"勤能补拙。",py:"Qín néng bǔ zhuō.",en:"Diligence makes up for what talent lacks."},
+  {zh:"有志者事竟成。",py:"Yǒu zhì zhě shì jìng chéng.",en:"Where there's a will, there's a way."},
+  {zh:"三人行，必有我师。",py:"Sān rén xíng, bì yǒu wǒ shī.",en:"Among any three people, one has something to teach me."}
 ];
 const CHEERS=[
   {seal:"棒",en:"Awesome! Checked in."},
@@ -356,8 +384,19 @@ function todayIdx(){ let d=new Date().getDay(); return (d+6)%7; } // 0=MON..6=SU
 function todayCode(){ return DAYORDER[todayIdx()]; }
 function taskMap(){ const m={}; TASKS.forEach(t=>{ m[(t.day||'').toUpperCase()]=t; }); return m; }
 
+/* 用「第几天」来轮换语录。
+   本来用星期几（todayIdx）→ 每个星期一都看到同一句，学生会觉得没换。 */
+function dayNumber(){
+  const d=new Date();
+  return Math.floor(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/86400000);
+}
 function showQuote(){
-  const q=QUOTES[todayIdx()];
+  const n=dayNumber();
+  const q=QUOTES[((n%QUOTES.length)+QUOTES.length)%QUOTES.length];
+  // 页尾谚语错开一点，免得跟页头同步轮换
+  const p=PROVERBS[(((n+4)%PROVERBS.length)+PROVERBS.length)%PROVERBS.length];
+  const set=(id,v)=>{const el=document.getElementById(id); if(el) el.textContent=v;};
+  set('pZh',p.zh); set('pPy',p.py); set('pEn',p.en);
   document.getElementById('qZh').textContent=q.zh;
   document.getElementById('qPy').textContent=q.py;
   document.getElementById('qEn').textContent=q.en;
@@ -405,8 +444,8 @@ function cardHTML(t,done){
       mediaHTML=`<div class="tc-media">
         <button class="playbtn" id="pb_${day}" onclick="togglePlay('${day}')">
           <span class="ic">🔊</span>
-          <span><span id="pbl_${day}">点一下听 Tap to listen</span>
-          <span class="sub">可以重复听 Listen as many times as you like</span></span>
+          <span><span id="pbl_${day}">点一下听<span class="eng">Tap to listen</span></span>
+          <span class="sub">可以重复听 · Listen as many times as you like</span></span>
         </button>
         <audio id="au_${day}" src="${u}" preload="none"
           onended="playEnded('${day}')"></audio></div>`;
@@ -414,7 +453,7 @@ function cardHTML(t,done){
       mediaHTML=`<div class="tc-media"><div class="medialbl">🖼️ 看这张图 Look at this</div>
         <img src="${u}" alt=""></div>`;
     } else {
-      mediaHTML=`<div class="tc-media"><a class="filelink" href="${u}" target="_blank" rel="noopener">📎 打开附件 Open file</a></div>`;
+      mediaHTML=`<div class="tc-media"><a class="filelink" href="${u}" target="_blank" rel="noopener">📎 打开附件<span class="eng">Open file</span></a></div>`;
     }
   }
   let actionHTML="";
@@ -423,27 +462,27 @@ function cardHTML(t,done){
     let fbHTML="";
     if(fb && fb.comment){
       fbHTML=`<div class="fbbox">
-        <div class="fblbl">💬 老师的评语 · Teacher's comment</div>
+        <div class="fblbl">💬 老师的评语<span class="eng">Teacher's comment</span></div>
         <div class="fbtext">${esc(fb.comment)}</div></div>`;
     } else if(fb && fb.status==='reviewed'){
-      fbHTML=`<div class="fbbox reviewed"><div class="fblbl">✅ 老师看过了 · Reviewed by teacher</div></div>`;
+      fbHTML=`<div class="fbbox reviewed"><div class="fblbl">✅ 老师看过了<span class="eng">Reviewed by teacher</span></div></div>`;
     } else if(fb){
-      fbHTML=`<div class="fbbox wait"><div class="fblbl">⏳ 等老师批改 · Waiting for teacher</div></div>`;
+      fbHTML=`<div class="fbbox wait"><div class="fblbl">⏳ 等老师批改<span class="eng">Waiting for teacher</span></div></div>`;
     }
-    actionHTML=`<div class="done-banner">✓ 已完成 Done!</div>
+    actionHTML=`<div class="done-banner">✓ 已完成<span class="eng">Done!</span></div>
       ${fbHTML}
-      <button class="undo" onclick="undoTask('${day}')">再做一次 · Do it again</button>`;
+      <button class="undo" onclick="undoTask('${day}')">再做一次<span class="eng">Do it again</span></button>`;
   } else if(isUpload){
     actionHTML=`
       <div id="recui_${day}"></div>
       <input type="file" id="file_${day}" style="display:none" onchange="pickFile('${day}')">
       <div class="fileName" id="fname_${day}"></div>
-      <div class="orfile">或 Or <label for="file_${day}">选文件上传（照片／影片）· Choose a file (photo / video)</label></div>
-      <button class="btn" id="btn_${day}" onclick="submitUpload('${day}')">Submit &amp; Check in · 提交打卡</button>`;
+      <div class="orfile">或 <label for="file_${day}">选文件上传（照片／影片）<span class="eng">Or choose a file (photo / video)</span></label></div>
+      <button class="btn" id="btn_${day}" onclick="submitUpload('${day}')">提交打卡<span class="eng">Submit &amp; check in</span></button>`;
   } else {
     actionHTML=`
-      <textarea class="answer" id="ans_${day}" placeholder="Type your answer here… 在这里打字回答"></textarea>
-      <button class="btn" id="btn_${day}" onclick="submitText('${day}')">Submit &amp; Check in · 提交打卡</button>`;
+      <textarea class="answer" id="ans_${day}" placeholder="在这里打字回答…  Type your answer here"></textarea>
+      <button class="btn" id="btn_${day}" onclick="submitText('${day}')">提交打卡<span class="eng">Submit &amp; check in</span></button>`;
   }
   return `<div class="taskcard ${isDone?'done':''}">
     <div class="tc-top">
@@ -456,7 +495,7 @@ function cardHTML(t,done){
     <div class="tc-desc">${t.desc||""}</div>
     ${mediaHTML}
     ${exampleHTML}
-    <span class="typetag ${isUpload?'upload':'text'}">${isUpload?'📎 Upload file 上传':'⌨️ Type answer 打字'}</span>
+    <span class="typetag ${isUpload?'upload':'text'}">${isUpload?'📎 上传<span class="eng">Upload</span>':'⌨️ 打字<span class="eng">Type</span>'}</span>
     <div class="tc-action">${actionHTML}</div>
   </div>`;
 }
@@ -482,13 +521,13 @@ function renderTask(){
   else { html+=`<div class="taskcard"><div class="tc-desc">今天没有作业，休息一下 🌿<br>No task today — take a rest!</div></div>`; }
   // 展开/收起按钮
   if(hasPast){
-    html+=`<div class="pastbtn" onclick="togglePast()">${showPast?"▲ Hide previous days · 收起":"▼ Catch up on earlier days · 查看前几天"}</div>`;
+    html+=`<div class="pastbtn" onclick="togglePast()">${showPast?'▲ 收起<span class="eng">Hide earlier days</span>':'▼ 查看前几天<span class="eng">Catch up on earlier days</span>'}</div>`;
   }
   // 明日预告
   let hasFuture=false;
   for(let i=ti+1;i<7;i++){ if(map[DAYORDER[i]]) hasFuture=true; }
-  if(hasFuture){ html+=`<div class="peek">🔮 Tomorrow's task unlocks at midnight… <b>?????</b></div>`; }
-  else { html+=`<div class="peek">🎉 That's everything for now — nice work!</div>`; }
+  if(hasFuture){ html+=`<div class="peek">🔮 明天的作业半夜解锁… <b>?????</b><span class="eng">Tomorrow's task unlocks at midnight</span></div>`; }
+  else { html+=`<div class="peek">🎉 这周的都做完了，很棒！<span class="eng">That's everything for now — nice work!</span></div>`; }
   area.innerHTML=html;
   // 给每个「上传型」任务画上录音界面
   area.querySelectorAll('[id^="recui_"]').forEach(el=>renderRecUI(el.id.slice(6)));
@@ -519,18 +558,18 @@ function togglePlay(day){
   // 先停掉别的
   document.querySelectorAll('audio[id^="au_"]').forEach(a=>{ if(a!==au){a.pause();a.currentTime=0;} });
   document.querySelectorAll('.playbtn').forEach(b=>{ if(b!==btn) b.classList.remove('playing'); });
-  document.querySelectorAll('[id^="pbl_"]').forEach(l=>{ if(l.id!=='pbl_'+day) l.textContent="点一下听 Tap to listen"; });
+  document.querySelectorAll('[id^="pbl_"]').forEach(l=>{ if(l.id!=='pbl_'+day) l.innerHTML='点一下听<span class="eng">Tap to listen</span>'; });
   if(au.paused){
     safePlay(au,
       ()=>{ btn.classList.add('playing');
-            document.getElementById('pbl_'+day).textContent="播放中… 再点一下停 Playing"; },
+            document.getElementById('pbl_'+day).innerHTML='播放中…再点一下停<span class="eng">Playing</span>'; },
       ()=>{ playEnded(day); toast("播放失败，请再点一次 · Tap again"); });
   } else { au.pause(); au.currentTime=0; playEnded(day); }
 }
 function playEnded(day){
   const btn=document.getElementById('pb_'+day), lb=document.getElementById('pbl_'+day);
   if(btn) btn.classList.remove('playing');
-  if(lb) lb.textContent="再听一次 Listen again";
+  if(lb) lb.innerHTML='再听一次<span class="eng">Listen again</span>';
 }
 
 /* ========== 学生直接录音 ========== */
@@ -680,7 +719,7 @@ const fileStore={};
 function pickFile(day){
   const f=document.getElementById('file_'+day).files[0];
   if(!f)return;
-  document.getElementById('fname_'+day).textContent="Selected: "+f.name;
+  document.getElementById('fname_'+day).textContent="已选：Selected · "+f.name;
   fileStore[day]=f;   // 直接存 File 对象，提交时上传到 Storage
   // 选了文件就把录音丢掉，避免两个都在、不知道交哪个
   const st=REC[day];
@@ -693,24 +732,24 @@ function submitUpload(day){
   if(!f){ toast("请先录音，或选一个文件 Record or choose a file"); return; }
   const t=taskMap()[day];
   const btn=document.getElementById('btn_'+day);
-  btn.disabled=true; btn.textContent="Uploading… 上传中";
+  btn.disabled=true; btn.textContent="上传中… Uploading";
   // 先上传文件到 Storage，拿到网址，再写一条打卡记录
   uploadFile(f, rec ? extOf(rec.type) : null)
     .then(url=>rpc("submit_checkin",{p_username:currentUsername,p_day:day,p_task_title:cleanText(t.title),p_type:"upload",p_text_answer:"",p_file_url:url}))
     .then(res=>{ if(!res||!res.ok) throw new Error("submit failed"); markDone(day); })
-    .catch(()=>{ btn.disabled=false; btn.textContent="Submit & Check in · 提交打卡"; toast("Upload failed, please retry · 上传失败，请重试"); });
+    .catch(()=>{ btn.disabled=false; btn.innerHTML='提交打卡<span class="eng">Submit &amp; check in</span>'; toast("上传失败，请重试 · Upload failed, please retry"); });
 }
 
 /* 打字型提交 */
 function submitText(day){
   const val=document.getElementById('ans_'+day).value.trim();
-  if(!val){ toast("Please type your answer · 请先打字回答"); return; }
+  if(!val){ toast("请先打字回答 · Please type your answer"); return; }
   const t=taskMap()[day];
   const btn=document.getElementById('btn_'+day);
-  btn.disabled=true; btn.textContent="Submitting… 提交中";
+  btn.disabled=true; btn.textContent="提交中… Submitting";
   rpc("submit_checkin",{p_username:currentUsername,p_day:day,p_task_title:cleanText(t.title),p_type:"text",p_text_answer:val,p_file_url:""})
     .then(res=>{ if(!res||!res.ok) throw new Error("submit failed"); markDone(day); })
-    .catch(()=>{ btn.disabled=false; btn.textContent="Submit & Check in · 提交打卡"; toast("Submit failed, please retry · 提交失败，请重试"); });
+    .catch(()=>{ btn.disabled=false; btn.innerHTML='提交打卡<span class="eng">Submit &amp; check in</span>'; toast("提交失败，请重试 · Submit failed, please retry"); });
 }
 
 function markDone(day){
