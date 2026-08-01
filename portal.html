@@ -824,7 +824,21 @@ function mediaBlockHTML(t,isTrack){
         传<b>语音</b>→学生看到大喇叭按钮（听力、跟读、拼音题用）。<br>传<b>图片</b>→学生看到图（看图说话用）。最大 50MB。</div>`;
     }
   }
-  return `<div class="mediabox"><label>🔊 语音 / 🖼️ 图片（可空）</label>${inner}</div>`;
+  return `<div class="mediabox" data-task="${t.id}" data-track="${isTrack?1:0}" data-media="${esc(t.media_url||'')}">
+    <label>🔊 语音 / 🖼️ 图片（可空）</label>${inner}</div>`;
+}
+
+/* 只重画「这一条作业」的媒体框，不去重查数据库。
+   录音时的状态切换必须走这里——用 refreshTaskViews() 会触发两次异步查询互相抢跑，
+   界面会卡在「准备中」不动。 */
+function refreshMediaBox(id,isTrack){
+  const box=document.querySelector('.mediabox[data-task="'+id+'"]');
+  if(!box){ refreshTaskViews(); return; }        // 找不到就退回整页刷新
+  if(isTrack===undefined) isTrack = box.getAttribute('data-track')==='1';
+  const t={id:id, media_url: box.getAttribute('data-media')||null};
+  const tmp=document.createElement('div');
+  tmp.innerHTML=mediaBlockHTML(t,isTrack);
+  box.replaceWith(tmp.firstElementChild);
 }
 
 /* ---------- 老师直接录音 ---------- */
@@ -864,17 +878,17 @@ async function tStartRec(id,isTrack){
       const type=mr.mimeType||mime||"audio/webm";
       const blob=new Blob(chunks,{type});
       if(blob.size<1200){                   // 基本等于没录到
-        st.on=false; delete TREC[id]; refreshTaskViews();
+        st.on=false; delete TREC[id]; refreshMediaBox(id,isTrack);
         toast("好像没录到声音，请再试一次");
         return;
       }
       if(st.url) URL.revokeObjectURL(st.url);
       st.blob=blob; st.url=URL.createObjectURL(blob); st.on=false;
-      TREC[id]=st; refreshTaskViews();
+      TREC[id]=st; refreshMediaBox(id,isTrack);
     };
     if(TREC[id]&&TREC[id].url) URL.revokeObjectURL(TREC[id].url);
     TREC[id]={mr,stream,on:true,warm:true,t0:0,timer:null,blob:null,url:null};
-    refreshTaskViews();                     // 先显示「准备中…先别说话」
+    refreshMediaBox(id,isTrack);            // 先显示「准备中…先别说话」
 
     // 立刻开录，早说也不会丢
     mr.start(250);
@@ -899,8 +913,8 @@ async function tStartRec(id,isTrack){
       if(el) el.textContent=Math.floor(ms/60000)+":"+String(Math.floor(ms/1000)%60).padStart(2,"0");
       if(ms>5*60*1000) tStopRec(id);
     },250);
-    refreshTaskViews();                     // 变成「请说！录音中」
-  }catch(e){ delete TREC[id]; refreshTaskViews(); toast("不能录音：请允许使用麦克风"); }
+    refreshMediaBox(id,isTrack);            // 变成「请说！录音中」
+  }catch(e){ delete TREC[id]; refreshMediaBox(id,isTrack); toast("不能录音：请允许使用麦克风"); }
 }
 function tStopRec(id){
   const st=TREC[id];
@@ -908,12 +922,13 @@ function tStopRec(id){
   if(st.warm){                              // 热身期间取消
     st.on=false;
     try{ st.stream && st.stream.getTracks().forEach(x=>x.stop()); }catch(e){}
-    delete TREC[id]; refreshTaskViews(); return;
+    clearInterval(st.timer);
+    delete TREC[id]; refreshMediaBox(id); return;
   }
   try{
     if(st.mr.state==='recording'){ st.mr.requestData(); }
     st.mr.stop();
-  }catch(e){ st.on=false; refreshTaskViews(); }
+  }catch(e){ st.on=false; refreshMediaBox(id); }
 }
 async function tUseRec(id,isTrack){
   const st=TREC[id]; if(!st||!st.blob){ toast("还没有录音"); return; }
