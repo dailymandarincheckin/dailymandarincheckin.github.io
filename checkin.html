@@ -134,6 +134,15 @@
     color:var(--bamboo);font-weight:700;font-size:15px;}
   .undo{display:block;margin:10px auto 0;background:none;border:none;color:var(--sub);font-size:12px;
     text-decoration:underline;font-family:"Noto Sans SC",sans-serif;}
+  /* 老师的评语 */
+  .fbbox{margin-top:12px;border:2.5px solid var(--ink);border-left-width:8px;border-radius:12px;
+    padding:12px 14px;background:rgba(232,179,61,.16);box-shadow:3px 3px 0 rgba(42,38,34,.12);}
+  .fbbox .fblbl{font-size:11.5px;font-weight:800;letter-spacing:.6px;color:#8a6a12;margin-bottom:6px;}
+  .fbbox .fbtext{font-size:15px;line-height:1.65;font-family:"Noto Sans SC",sans-serif;white-space:pre-wrap;}
+  .fbbox.reviewed{background:rgba(90,138,74,.14);}
+  .fbbox.reviewed .fblbl{color:var(--bamboo);margin-bottom:0;}
+  .fbbox.wait{background:rgba(46,143,176,.12);}
+  .fbbox.wait .fblbl{color:var(--cyan);margin-bottom:0;}
 
   .pastbtn{text-align:center;padding:12px;font-size:13px;font-weight:600;color:var(--cyan);
     border:2px dashed var(--line);border-radius:14px;background:transparent;transition:.15s;margin-top:14px;}
@@ -320,7 +329,12 @@ function boot(){
   currentUsername=u;
   rpc("student_login",{p_username:u})
     .then(res=>{
-      if(res && res.ok){ currentUser=res.name||u; TASKS=sortTasks(res.tasks||[]); startApp(); }
+      if(res && res.ok){
+        currentUser=res.name||u;
+        TASKS=sortTasks(res.tasks||[]);
+        SERVER_DONE=res.done||{};        // 服务器上的「交了没 + 老师评语」
+        startApp();
+      }
       else gateError("找不到这个学生。","We couldn't find this student. Please check your link, or ask your teacher.");
     })
     .catch(()=>gateError("连接不上服务器。","Couldn't reach the server. Please check your internet and refresh."));
@@ -349,10 +363,29 @@ function showQuote(){
   document.getElementById('qEn').textContent=q.en;
 }
 
-/* 打卡状态存浏览器 */
+/* 打卡状态：以【服务器】为准，本机记录只是刚提交完的即时反馈。
+   （以前只存本机 localStorage，所以手机交的作业电脑上看不到） */
+let SERVER_DONE={};
 function storeKey(){ return "cai_checkin_"+currentUsername; }
-function getDone(){ try{return JSON.parse(localStorage.getItem(storeKey())||"{}");}catch(e){return {};} }
-function setDone(o){ try{localStorage.setItem(storeKey(),JSON.stringify(o));}catch(e){} }
+function redoKey(){ return "cai_redo_"+currentUsername; }
+function getLocalDone(){ try{return JSON.parse(localStorage.getItem(storeKey())||"{}");}catch(e){return {};} }
+function setLocalDone(o){ try{localStorage.setItem(storeKey(),JSON.stringify(o));}catch(e){} }
+function getRedo(){ try{return JSON.parse(localStorage.getItem(redoKey())||"{}");}catch(e){return {};} }
+function setRedo(o){ try{localStorage.setItem(redoKey(),JSON.stringify(o));}catch(e){} }
+/* 合并后的「这天完成了吗」：服务器有 或 本机刚交过；学生选了「再做一次」则不算 */
+function getDone(){
+  const redo=getRedo(), out={};
+  Object.keys(SERVER_DONE||{}).forEach(d=>{ if(!redo[d]) out[d]=true; });
+  Object.keys(getLocalDone()).forEach(d=>{ if(!redo[d]) out[d]=true; });
+  return out;
+}
+/* 把老师写的文字安全地放进网页（防止 < > & 之类把版面弄坏） */
+function esc(s){return String(s==null?"":s).replace(/[<>&"]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;",'"':"&quot;"}[c]));}
+/* 这天老师的评语（没有就返回空） */
+function feedbackOf(day){
+  const s=(SERVER_DONE||{})[day];
+  return s ? {status:s.status||'pending', comment:(s.comment||'').trim()} : null;
+}
 
 /* 生成一张任务卡 */
 function cardHTML(t,done){
@@ -386,8 +419,20 @@ function cardHTML(t,done){
   }
   let actionHTML="";
   if(isDone){
+    const fb=feedbackOf(day);
+    let fbHTML="";
+    if(fb && fb.comment){
+      fbHTML=`<div class="fbbox">
+        <div class="fblbl">💬 老师的评语 · Teacher's comment</div>
+        <div class="fbtext">${esc(fb.comment)}</div></div>`;
+    } else if(fb && fb.status==='reviewed'){
+      fbHTML=`<div class="fbbox reviewed"><div class="fblbl">✅ 老师看过了 · Reviewed by teacher</div></div>`;
+    } else if(fb){
+      fbHTML=`<div class="fbbox wait"><div class="fblbl">⏳ 等老师批改 · Waiting for teacher</div></div>`;
+    }
     actionHTML=`<div class="done-banner">✓ 已完成 Done!</div>
-      <button class="undo" onclick="undoTask('${day}')">取消打卡 · Undo</button>`;
+      ${fbHTML}
+      <button class="undo" onclick="undoTask('${day}')">再做一次 · Do it again</button>`;
   } else if(isUpload){
     actionHTML=`
       <div id="recui_${day}"></div>
@@ -669,15 +714,40 @@ function submitText(day){
 }
 
 function markDone(day){
-  const done=getDone(); done[day]=true; setDone(done);
+  const local=getLocalDone(); local[day]=true; setLocalDone(local);
+  const redo=getRedo(); delete redo[day]; setRedo(redo);   // 交了就不再是「重做中」
+  if(!SERVER_DONE[day]) SERVER_DONE[day]={status:'pending',comment:''};
   renderTask();
-  celebrate(Object.keys(done).length);
+  celebrate(Object.keys(getDone()).length);
+  refreshFromServer();                                     // 顺便同步一次
 }
 function undoTask(day){
-  const done=getDone(); delete done[day]; setDone(done);
+  const redo=getRedo(); redo[day]=true; setRedo(redo);     // 标记「想再做一次」
+  const local=getLocalDone(); delete local[day]; setLocalDone(local);
   renderTask();
-  toast("Unchecked · 已取消");
+  toast("可以再做一次 · You can do it again");
 }
+
+/* 从服务器重新拉一次（拿老师最新的评语 / 别的设备交的作业） */
+let refreshing=false;
+function refreshFromServer(){
+  if(refreshing || !currentUsername) return;
+  refreshing=true;
+  rpc("student_login",{p_username:currentUsername})
+    .then(res=>{
+      if(res && res.ok){
+        SERVER_DONE=res.done||{};
+        TASKS=sortTasks(res.tasks||[]);
+        // 服务器已经有的天，清掉「重做」标记之外的本机残留
+        renderTask();
+      }
+    })
+    .catch(()=>{})
+    .finally(()=>{ refreshing=false; });
+}
+/* 回到这个页面时自动刷新一次——老师刚批改完，学生切回来就能看到评语 */
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) refreshFromServer(); });
+window.addEventListener('focus',refreshFromServer);
 
 function cleanText(s){ return String(s||"").replace(/<[^>]+>/g,''); }
 
