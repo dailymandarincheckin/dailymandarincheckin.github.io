@@ -393,7 +393,7 @@ function cardHTML(t,done){
       <div id="recui_${day}"></div>
       <input type="file" id="file_${day}" style="display:none" onchange="pickFile('${day}')">
       <div class="fileName" id="fname_${day}"></div>
-      <div class="orfile">或 Or <label for="file_${day}">选文件上传（照片／已录好的）· Choose a file (photo / recorded)</label></div>
+      <div class="orfile">或 Or <label for="file_${day}">选文件上传（照片／影片）· Choose a file (photo / video)</label></div>
       <button class="btn" id="btn_${day}" onclick="submitUpload('${day}')">Submit &amp; Check in · 提交打卡</button>`;
   } else {
     actionHTML=`
@@ -449,6 +449,24 @@ function renderTask(){
   area.querySelectorAll('[id^="recui_"]').forEach(el=>renderRecUI(el.id.slice(6)));
 }
 
+/* 稳妥地播放：第一次点如果还没加载好，自动重载再播一次
+   （不这样做的话，第一次点会静静失败，要点三下才响） */
+function safePlay(a,onOk,onFail){
+  try{
+    const p=a.play();
+    if(p && p.then){
+      p.then(()=>onOk&&onOk()).catch(()=>{
+        try{
+          a.load();
+          const p2=a.play();
+          if(p2&&p2.then) p2.then(()=>onOk&&onOk()).catch(()=>onFail&&onFail());
+          else onOk&&onOk();
+        }catch(e){ onFail&&onFail(); }
+      });
+    } else { onOk&&onOk(); }
+  }catch(e){ onFail&&onFail(); }
+}
+
 /* ========== 听老师的语音：大喇叭按钮 ========== */
 function togglePlay(day){
   const au=document.getElementById('au_'+day), btn=document.getElementById('pb_'+day);
@@ -458,10 +476,10 @@ function togglePlay(day){
   document.querySelectorAll('.playbtn').forEach(b=>{ if(b!==btn) b.classList.remove('playing'); });
   document.querySelectorAll('[id^="pbl_"]').forEach(l=>{ if(l.id!=='pbl_'+day) l.textContent="点一下听 Tap to listen"; });
   if(au.paused){
-    au.play().then(()=>{
-      btn.classList.add('playing');
-      document.getElementById('pbl_'+day).textContent="播放中… 再点一下停";
-    }).catch(()=>toast("播放失败，请再点一次"));
+    safePlay(au,
+      ()=>{ btn.classList.add('playing');
+            document.getElementById('pbl_'+day).textContent="播放中… 再点一下停 Playing"; },
+      ()=>{ playEnded(day); toast("播放失败，请再点一次 · Tap again"); });
   } else { au.pause(); au.currentTime=0; playEnded(day); }
 }
 function playEnded(day){
@@ -507,9 +525,9 @@ function renderRecUI(day){
       <span class="sub">点一下停 · Tap to stop</span></span></button>`;
   } else if(st.url){
     box.innerHTML=`<button class="recbtn" style="background:var(--bamboo);" onclick="playMine('${day}')">
-        <span>▶️ 听一下我的录音
+        <span><span id="mbl_${day}">▶️ 听一下我的录音</span>
         <span class="sub">Play my recording</span></span></button>
-      <audio id="my_${day}" src="${st.url}" preload="metadata"></audio>
+      <audio id="my_${day}" src="${st.url}" preload="auto" onended="myEnded('${day}')"></audio>
       <div class="recrow"><button class="minibtn" onclick="startRec('${day}')">🔄 重录 Record again</button></div>`;
   } else {
     box.innerHTML=`<button class="recbtn" onclick="startRec('${day}')">
@@ -593,9 +611,22 @@ function stopRec(day){
     st.mr.stop();
   }catch(e){ st.on=false; renderRecUI(day); }
 }
+function myEnded(day){
+  const l=document.getElementById('mbl_'+day);
+  if(l) l.textContent="▶️ 再听一次 Play again";
+}
 function playMine(day){
   const a=document.getElementById('my_'+day); if(!a) return;
-  if(a.paused){ a.play().catch(()=>{}); } else { a.pause(); a.currentTime=0; }
+  const l=document.getElementById('mbl_'+day);
+  if(!a.paused){                                  // 正在播 → 停
+    a.pause(); a.currentTime=0;
+    if(l) l.textContent="▶️ 听一下我的录音";
+    return;
+  }
+  a.currentTime=0;
+  safePlay(a,
+    ()=>{ if(l) l.textContent="⏸ 播放中… 点一下停"; },
+    ()=>{ if(l) l.textContent="▶️ 听一下我的录音"; toast("播放失败，请再点一次 · Tap again"); });
 }
 function togglePast(){ showPast=!showPast; renderTask(); }
 

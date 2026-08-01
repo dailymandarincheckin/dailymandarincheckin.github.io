@@ -434,7 +434,8 @@ function submissionCardHTML(s){
   } else if(s.file_url){
     const url=s.file_url, low=url.toLowerCase();
     if(/\.(mp3|m4a|wav|ogg|aac|webm)($|\?)/.test(low)) content=`<audio controls src="${esc(url)}"></audio>`;
-    else if(/\.(jpg|jpeg|png|gif|webp|heic)($|\?)/.test(low)) content=`<div class="filebox"><a href="${esc(url)}" target="_blank"><img src="${esc(url)}" alt=""></a></div>`;
+    else if(/\.(mp4|mov|m4v|3gp|avi|mkv)($|\?)/.test(low)) content=`<video controls preload="metadata" src="${esc(url)}" style="width:100%;max-height:420px;border:2.5px solid var(--ink);border-radius:12px;background:#000;margin-bottom:10px;"></video>`;
+    else if(/\.(jpg|jpeg|png|gif|webp|heic|heif)($|\?)/.test(low)) content=`<div class="filebox"><a href="${esc(url)}" target="_blank"><img src="${esc(url)}" alt=""></a></div>`;
     else content=`<div class="answerbox"><a href="${esc(url)}" target="_blank">📎 打开附件</a></div>`;
   }
   return `<div class="card2 ${reviewed?'done':''}">
