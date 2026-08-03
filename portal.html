@@ -474,6 +474,26 @@ audio{width:100%;margin-bottom:10px;}
   border-radius:var(--r-sm);padding:11px 14px;font-size:13px;margin-bottom:12px;line-height:1.85;
   box-shadow:inset 0 1px 0 var(--edge);
 }
+/* 题库分页的筛选条（技能／水平）*/
+.filters{margin-bottom:14px;}
+.frow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;}
+.frow .fl{
+  font-size:12px;font-weight:600;letter-spacing:1px;color:var(--sub);
+  width:34px;flex:0 0 34px;
+}
+.frow .f{
+  background:linear-gradient(180deg,var(--card-hi),var(--card));color:var(--ink2);
+  border:none;border-radius:var(--r-pill);padding:5px 13px;font-size:13px;font-weight:600;
+  cursor:pointer;box-shadow:inset 0 0 0 1px var(--line-soft),inset 0 1px 0 var(--edge);
+  transition:color .18s ease;
+}
+.frow .f:hover{color:var(--clay);}
+.frow .f.on{
+  background:linear-gradient(180deg,var(--clay-hi),var(--clay) 58%,var(--clay-lo));
+  color:var(--on-clay);box-shadow:inset 0 1px 0 rgba(255,255,255,.24);
+}
+.frow .count{margin-left:auto;font-size:13px;font-weight:600;color:var(--ink3);}
+
 @media(max-width:640px){.hub{flex-direction:column;}.hub-side,.hub-side.collapsed{width:100%;flex:1 1 auto;}}
 </style>
 </head>
@@ -507,6 +527,7 @@ audio{width:100%;margin-bottom:10px;}
       <button class="tab" data-tab="review" onclick="switchTab('review')">✍️ 批改</button>
       <button class="tab" data-tab="students" onclick="switchTab('students')">🧑‍🎓 学生·作业</button>
       <button class="tab" data-tab="tasks" onclick="switchTab('tasks')">📚 模板库</button>
+      <button class="tab" data-tab="bank" onclick="switchTab('bank')">📖 题库</button>
     </div>
 
     <!-- 进度 -->
@@ -556,6 +577,15 @@ audio{width:100%;margin-bottom:10px;}
       <div id="tasksBody"><div class="spin"></div></div>
     </div>
 
+    <div class="panel" id="panel-bank">
+      <div class="sechead"><span class="dot"></span><span>题库 · 自动排课从这里取题</span></div>
+      <div class="filters" id="bankFilters"></div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+        <button class="btn cyan sm" onclick="openAddQuestion()">＋ 加一道题</button>
+      </div>
+      <div id="bankBody"><div class="spin"></div></div>
+    </div>
+
   </div>
 </div>
 
@@ -585,6 +615,9 @@ const LEVEL_LABEL={pinyin:"零基础（拼音）",hsk1:"HSK1",hsk2:"HSK2",hsk3:"
 // 下拉框只用这 7 个正式档
 const LEVEL_KEYS=["pinyin","hsk1","hsk2","hsk3","hsk4","hsk5","hsk6"];
 const LEVEL_ORDER={pinyin:0,hsk1:1,hsk2:2,hsk3:3,hsk4:4,hsk5:5,hsk6:6,zero:0,beginner:1,intermediate:3,advanced:5};
+// 配方（自动排课）用：五个技能的中文名和排列顺序
+const SKILL_CN={speak:"说",listen:"听",read:"读",write:"写",pinyin:"发音"};
+const SKILL_ORDER=["speak","listen","read","write","pinyin"];
 function typeOptions(cur){return Object.keys(TYPE_LABEL).map(k=>`<option value="${k}" ${cur===k?'selected':''}>${TYPE_LABEL[k]}</option>`).join('');}
 function levelOptions(cur){return LEVEL_KEYS.map(k=>`<option value="${k}" ${cur===k?'selected':''}>${LEVEL_LABEL[k]}</option>`).join('');}
 
@@ -636,7 +669,7 @@ function restoreTab(){
 /* ---------- 加载数据 ---------- */
 async function loadAll(){
   await loadTracks();
-  await Promise.all([loadStudents(), loadSubs()]);
+  await Promise.all([loadStudents(), loadSubs(), loadQuestions()]);
 }
 async function loadTracks(){
   const {data,error}=await sb.from('tracks').select('*').order('created_at',{ascending:true});
@@ -1005,6 +1038,243 @@ async function saveTrackInfo(id){
   selectedTrackId=id;
   await loadTracks();
 }
+/* ---------- 配方（自动排课） ---------- */
+
+/* 查某个模板每个技能【实际可用】的题数。
+   ⚠️⚠️ 过滤规则【必须】跟 build_week_tasks() 里的完全一致，否则警告会骗人：
+     · 听力题没有 media_url → 组周时会被排除，这里也不能算
+     · 纯口语模板（type='oral'）→ 只能用标了 description_pinyin 的题
+   曾经写过一版只数总题数的，结果后台显示「听 8 道够用」，
+   而实际可用是 0（一段录音都没有），那几天全是空的。 */
+async function poolCounts(track){
+  const {data,error}=await sb.from('questions')
+    .select('skill,media_url,description_pinyin')
+    .eq('level',track.level).eq('active',true);
+  if(error){ toast("读题库失败："+error.message); return {}; }
+  const oralOnly=(track.type==='oral');
+  const out={};
+  (data||[]).forEach(q=>{
+    if(q.skill==='listen' && !String(q.media_url||'').trim()) return;
+    if(oralOnly && !String(q.description_pinyin||'').trim()) return;
+    out[q.skill]=(out[q.skill]||0)+1;
+  });
+  return out;
+}
+
+/* 模板的「配方」编辑块：五个数字框 + 一周几天 + 缺题警告 */
+function recipeBoxHTML(track, counts){
+  const rc=track.recipe||{};
+  let total=0, warn=[];
+  const rows=SKILL_ORDER.map(s=>{
+    const n=parseInt(rc[s]||0,10)||0; total+=n;
+    const have=counts[s]||0;
+    if(n>0 && have===0) warn.push('缺 '+SKILL_CN[s]+' 的题');
+    else if(n>0 && have<n) warn.push(SKILL_CN[s]+'只有 '+have+' 道，配方要 '+n+' 道');
+    return '<div><label style="margin:0 0 5px">'+SKILL_CN[s]+
+      '<span style="color:var(--ink3);font-weight:400"> · 池子 '+have+' 道</span></label>'+
+      '<input type="number" min="0" max="7" id="rc_'+s+'" value="'+n+'"></div>';
+  }).join('');
+  return '<div class="card2"><div class="sechead"><span class="dot"></span>'+
+    '<span>每周配方 · 系统按这个自动组一周作业</span></div>'+
+    '<div class="grid2" style="grid-template-columns:repeat(5,1fr)">'+rows+'</div>'+
+    '<div class="rowend"><button class="btn sm" onclick="saveRecipe(\''+track.id+'\')">保存配方</button>'+
+    '<button class="btn cyan sm" onclick="previewWeeks(\''+track.id+'\')">看未来四周</button>'+
+    '<button class="btn ghost sm" onclick="clearRecipe(\''+track.id+'\')">清空（改回手工作业）</button>'+
+    '<span class="chip">一周 '+total+' 天</span></div>'+
+    (warn.length?'<div class="follow-note" style="margin-top:12px">⚠️ '+esc(warn.join('；'))+
+      '。这些天学生会看到「今天没有作业」。</div>':'')+
+    '</div><div id="previewBox"></div>';
+}
+async function saveRecipe(trackId){
+  const rc={}; let total=0;
+  for(const s of SKILL_ORDER){
+    const el=document.getElementById('rc_'+s);
+    if(!el){ toast("页面已变，请重新选一次模板"); return; }
+    const n=parseInt(el.value,10)||0;
+    if(n>0){ rc[s]=n; total+=n; }
+  }
+  if(total===0){ toast("配方全是 0，等于没有作业"); return; }
+  if(total>7){ toast("一周最多 7 天，现在是 "+total+" 天"); return; }
+  const {error}=await sb.from('tracks').update({recipe:rc}).eq('id',trackId);
+  if(error){ toast("保存失败："+error.message); return; }
+  toast("配方已保存 ✓ 本周立刻生效");
+  await loadTracks();
+}
+async function clearRecipe(trackId){
+  if(!confirm("清空配方后，这个模板改回用下面手填的七天作业。确定吗？")) return;
+  const {error}=await sb.from('tracks').update({recipe:null}).eq('id',trackId);
+  if(error){ toast("失败："+error.message); return; }
+  toast("已清空，这个模板改回手工作业");
+  await loadTracks();
+}
+
+/* 预览这个模板接下来四周每天出什么题。
+   用的是 build_week_tasks() —— 跟学生端拿题走的【同一个函数】，
+   所以这里看到的就是学生会看到的，不是另算一套。 */
+const PREVIEW_LABEL=['本周','下周','第 3 周','第 4 周'];
+async function previewWeeks(trackId){
+  const box=document.getElementById('previewBox'); if(!box) return;
+  const t=TRACKS.find(x=>x.id===trackId);
+  if(t && !t.recipe){
+    box.innerHTML='<div class="muted">这个模板还没有配方。先在上面填好数字、点「保存配方」，再看预览。</div>';
+    return;
+  }
+  box.innerHTML='<div class="spin"></div>';
+  const {data:wi,error:we}=await sb.rpc('week_index');
+  // 不做这个检查的话：wi 是 undefined → wi+k 变成 NaN → 传进 SQL 报错但看不出原因
+  if(we || typeof wi!=='number'){
+    box.innerHTML='<div class="muted">拿不到本周序号：'+esc(we?we.message:'返回值不是数字')+'</div>';
+    return;
+  }
+  let html='<div class="sechead" style="margin-top:16px"><span class="dot"></span>'+
+           '<span>未来四周 · 学生会看到的就是这些</span></div>';
+  for(let k=0;k<4;k++){
+    const {data,error}=await sb.rpc('build_week_tasks',{p_track_id:trackId,p_week:wi+k});
+    if(error){ box.innerHTML='<div class="muted">预览失败：'+esc(error.message)+'</div>'; return; }
+    const rows=(data||[]).map(t=>
+      '<div class="ro-day"><span class="d">'+esc(DAYCN[t.day]||t.day)+'</span>'+
+      '<span style="flex:1">'+esc(t.title||'')+'</span>'+
+      '<span class="k">'+esc(t.type==='text'?'打字':'录音')+'</span></div>').join('');
+    html+='<div class="card2"><div class="dtag">'+PREVIEW_LABEL[k]+' · '+(data||[]).length+' 天</div>'+
+          (rows||'<div class="muted">这周排不出作业 —— 池子里没有可用的题。</div>')+'</div>';
+  }
+  box.innerHTML=html;
+}
+
+/* ---------- 题库（自动排课的题从这里来） ---------- */
+let QUESTIONS=[], bankSkill='', bankLevel='';
+
+async function loadQuestions(){
+  const {data,error}=await sb.from('questions').select('*')
+    .order('skill').order('level').order('created_at');
+  if(error){ toast("读题库失败："+error.message); return; }
+  QUESTIONS=data||[]; renderBank();
+}
+function renderBank(){
+  const box=document.getElementById('bankBody'); if(!box) return;
+  const list=QUESTIONS.filter(q=>
+    (!bankSkill||q.skill===bankSkill) && (!bankLevel||q.level===bankLevel));
+  document.getElementById('bankFilters').innerHTML=
+    '<div class="frow"><span class="fl">技能</span>'+
+    ['',...SKILL_ORDER].map(s=>'<button class="f'+(bankSkill===s?' on':'')+
+      '" onclick="bankSkill=\''+s+'\';renderBank()">'+(s?SKILL_CN[s]:'全部')+'</button>').join('')+
+    '</div><div class="frow"><span class="fl">水平</span>'+
+    ['',...LEVEL_KEYS].map(l=>'<button class="f'+(bankLevel===l?' on':'')+
+      '" onclick="bankLevel=\''+l+'\';renderBank()">'+(l?LEVEL_LABEL[l]:'全部')+'</button>').join('')+
+    '<span class="count">'+list.length+' 道</span></div>';
+  if(!list.length){ box.innerHTML='<div class="muted">这个条件下还没有题。点右上角「＋ 加一道题」。</div>'; return; }
+  box.innerHTML=list.map(q=>{
+    const noPy   = !((q.description_pinyin||'').trim());
+    const noMedia= !((q.media_url||'').trim());
+    // 跟 build_week_tasks() 的两条安全规则对应：听力题没录音进不了池子
+    const warn = (q.skill==='listen' && noMedia)
+      ? '<div class="follow-note" style="margin-top:8px">⚠️ 听力题没有录音，<b>自动排课会跳过它</b>。传了语音才算数。</div>' : '';
+    return '<div class="task-row">'+
+      '<div class="dtag">'+esc(SKILL_CN[q.skill]||q.skill)+' · '+esc(LEVEL_LABEL[q.level]||q.level)+
+        (q.code?' · '+esc(q.code):'')+'</div>'+
+      '<div class="grid2" style="margin-bottom:8px">'+
+        '<input id="q_title_'+q.id+'" value="'+esc(q.title||'')+'" placeholder="标题">'+
+        '<input id="q_title_en_'+q.id+'" value="'+esc(q.title_en||'')+'" placeholder="标题英文">'+
+      '</div>'+
+      '<textarea id="q_desc_'+q.id+'" placeholder="题目正文">'+esc(q.description||'')+'</textarea>'+
+      '<textarea id="q_desc_en_'+q.id+'" placeholder="正文英文（学生靠这个看懂要求）">'+esc(q.description_en||'')+'</textarea>'+
+      '<textarea id="q_desc_py_'+q.id+'" placeholder="正文拼音（纯口语学生只看这一份，指令也要标）">'+esc(q.description_pinyin||'')+'</textarea>'+
+      (noPy?'<div class="follow-note" style="margin-top:8px">⚠️ 这道题缺拼音，<b>纯口语学生（Fitri）用不了</b>。</div>':'')+
+      warn+
+      '<div class="grid2" style="margin:8px 0">'+
+        '<input id="q_ex_'+q.id+'" value="'+esc(q.example||'')+'" placeholder="例句">'+
+        '<input id="q_ex_py_'+q.id+'" value="'+esc(q.example_pinyin||'')+'" placeholder="例句拼音">'+
+      '</div>'+
+      questionMediaHTML(q)+
+      '<div class="rowend">'+
+        '<button class="btn sm" onclick="saveQuestion(\''+q.id+'\')">💾 保存</button>'+
+        '<select id="q_skill_'+q.id+'" style="width:auto">'+
+          SKILL_ORDER.map(s=>'<option value="'+s+'"'+(q.skill===s?' selected':'')+'>'+SKILL_CN[s]+'</option>').join('')+
+        '</select>'+
+        '<select id="q_level_'+q.id+'" style="width:auto">'+levelOptions(q.level)+'</select>'+
+        '<select id="q_at_'+q.id+'" style="width:auto">'+
+          '<option value="upload"'+(q.answer_type!=='text'?' selected':'')+'>upload · 交录音/照片</option>'+
+          '<option value="text"'+(q.answer_type==='text'?' selected':'')+'>text · 打字回答</option>'+
+        '</select>'+
+        // 「删掉」推到最右边，别紧挨着「保存」，免得点错
+        '<button class="btn danger sm" style="margin-left:auto" onclick="deleteQuestion(\''+q.id+'\')">删掉</button>'+
+      '</div></div>';
+  }).join('');
+}
+
+/* 题库里每道题的语音／图片。
+   ⚠️ 【绝对不能】复用 mediaBlockHTML / uploadMedia / removeMedia ——
+   那三个的目标表写死是 track_tasks 或 task_templates，永远不会写 questions 表，
+   拿来用会「看起来成功、其实没保存」。这一套的目标表写死成 questions。 */
+function questionMediaHTML(q){
+  const u=q.media_url||'';
+  let show='<div class="hint">还没有语音／图片。听力题和发音题一定要传，不然学生看到的是一道没声音的题。</div>';
+  if(u){
+    const low=u.toLowerCase();
+    if(/\.(mp3|m4a|wav|ogg|aac|webm)($|\?)/.test(low)) show='<audio controls src="'+esc(u)+'"></audio>';
+    else if(/\.(jpg|jpeg|png|gif|webp|heic|heif)($|\?)/.test(low)) show='<img src="'+esc(u)+'" alt="">';
+    else show='<a href="'+esc(u)+'" target="_blank" rel="noopener">附件</a>';
+  }
+  return '<div class="mediabox" id="qm_'+q.id+'"><div><b>题目的语音／图片</b>'+
+    (u?'<span class="mtag">已有</span>':'')+'</div>'+show+
+    '<div class="rowend">'+
+      '<input type="file" id="qf_'+q.id+'" style="display:none" onchange="uploadQuestionMedia(\''+q.id+'\')">'+
+      '<button class="btn cyan sm" onclick="document.getElementById(\'qf_'+q.id+'\').click()">传文件</button>'+
+      (u?'<button class="btn ghost sm" onclick="removeQuestionMedia(\''+q.id+'\')">移除</button>':'')+
+    '</div></div>';
+}
+async function uploadQuestionMedia(id){
+  const el=document.getElementById('qf_'+id); const f=el&&el.files[0]; if(!f) return;
+  toast("上传中…");
+  const ext=(f.name.split('.').pop()||'bin').toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,5)||'bin';
+  const path='task-media/'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.'+ext;
+  const {error:upErr}=await sb.storage.from('uploads').upload(path,f);
+  if(upErr){ toast("上传失败："+upErr.message); return; }
+  const url=SUPABASE_URL+"/storage/v1/object/public/uploads/"+encodeURI(path);
+  const {error}=await sb.from('questions').update({media_url:url}).eq('id',id);
+  if(error){ toast("保存失败："+error.message); return; }
+  toast("传好了 ✓"); await loadQuestions();
+}
+async function removeQuestionMedia(id){
+  if(!confirm("移除这道题的语音／图片？听力题移除后自动排课会跳过它。")) return;
+  const {error}=await sb.from('questions').update({media_url:null}).eq('id',id);
+  if(error){ toast("失败："+error.message); return; }
+  toast("已移除"); await loadQuestions();
+}
+
+async function saveQuestion(id){
+  const v=k=>{const el=document.getElementById('q_'+k+'_'+id); return el?el.value.trim():null;};
+  const sel=k=>{const el=document.getElementById('q_'+k+'_'+id); return el?el.value:null;};
+  const payload={
+    title:v('title'), title_en:v('title_en'),
+    description:v('desc'), description_en:v('desc_en'),
+    description_pinyin:v('desc_py')||null,
+    example:v('ex')||null, example_pinyin:v('ex_py')||null,
+    skill:sel('skill'), level:sel('level'), answer_type:sel('at')
+  };
+  const {error}=await sb.from('questions').update(payload).eq('id',id);
+  if(error){ toast("保存失败："+error.message); return; }
+  toast("已保存 ✓");
+  await loadQuestions();
+}
+async function deleteQuestion(id){
+  if(!confirm("确定删掉这道题？删了就不会再轮到它。")) return;
+  const {error}=await sb.from('questions').delete().eq('id',id);
+  if(error){ toast("删除失败："+error.message); return; }
+  toast("已删除");
+  await loadQuestions();
+}
+async function openAddQuestion(){
+  const {error}=await sb.from('questions').insert({
+    skill: bankSkill||'speak', level: bankLevel||'hsk1',
+    title:'新题目', title_en:'New task',
+    description:'', description_en:'', answer_type:'upload'
+  }).select().single();
+  if(error){ toast("加题失败："+error.message); return; }
+  toast("加好了，往下滚改内容");
+  await loadQuestions();
+}
+
 async function renderTasksTab(){
   const box=document.getElementById('tasksBody'); if(!box) return;
   const trackId=selectedTrackId;
@@ -1031,7 +1301,11 @@ async function renderTasksTab(){
       <div style="font-size:12px;color:var(--sub);margin-top:8px;">类型+水平要跟学生注册时选的一致，才能自动分配。</div>
       <div class="rowend"><button class="btn cyan sm" onclick="saveTrackInfo('${trackId}')">💾 保存套餐信息</button></div>
     </div>`;
-    hint.textContent="下面是这个套餐的七天作业。改完点每条「保存」。某天不想让学生做，把「这天开」取消即可。";
+    // 配方编辑块（缺题警告要读题库，所以要 await）。t.id 为空说明这个套餐已经被删了，就不画。
+    if(t.id) header+=recipeBoxHTML(t, await poolCounts(t));
+    hint.textContent = t.recipe
+      ? "这个套餐已经设了配方：作业由系统每周自动组，下面手填的七天作业【暂时不用】。要改回手工，点「清空配方」。"
+      : "下面是这个套餐的七天作业。改完点每条「保存」。某天不想让学生做，把「这天开」取消即可。";
   } else {
     const {data,error}=await sb.from('task_templates').select('*');
     if(error){toast("读作业失败");return;}

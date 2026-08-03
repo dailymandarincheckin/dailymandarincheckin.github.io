@@ -267,7 +267,25 @@ button,textarea{font-family:inherit}
 .turn.me .bubble.full{width:100%}
 
 .t-title{font-size:17.5px;font-weight:600;letter-spacing:1.4px;line-height:1.6}
-.t-desc{font-size:14.5px;color:var(--ink2);margin-top:8px;line-height:1.9}
+.t-desc{font-size:14.5px;color:var(--ink2);margin-top:8px;line-height:1.9;white-space:pre-line}
+
+/* 题目正文的拼音。
+   纯口语学生（.only）看到的就是这一份，所以要跟正文一样醒目；
+   其余情况是辅助，浅一点、斜体。 */
+.t-py{font-size:13.5px;color:var(--ink2);font-style:italic;line-height:1.85;margin-top:6px;letter-spacing:.3px;white-space:pre-line}
+.t-py.only{font-style:normal;font-size:14.5px;color:var(--ink2);margin-top:0}
+/* HSK3 以上的读题：拼音默认收起，点一下才看。
+   让汉字成为默认路径，拼音成为求助路径 —— 防止「拼音依赖」。 */
+details.pyfold{margin-top:9px}
+details.pyfold>summary{
+  list-style:none;cursor:pointer;font-size:12px;color:var(--ink3);letter-spacing:.2px;
+  display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:var(--r-pill);
+  box-shadow:inset 0 0 0 1px var(--line-soft);transition:color .18s ease,box-shadow .18s ease;
+}
+details.pyfold>summary::-webkit-details-marker{display:none}
+details.pyfold>summary::marker{content:""}
+details.pyfold>summary:hover{color:var(--clay);box-shadow:inset 0 0 0 1px var(--clay)}
+details.pyfold[open]>summary{margin-bottom:2px}
 
 /* 例句 —— 做成压进纸里的一小块，跟气泡区分开 */
 .t-ex{
@@ -971,6 +989,36 @@ function stepsHTML(day,hasAudio,isDone){
   return '<div class="steps">'+html+'</div>';
 }
 
+/* 题目正文怎么显示（规则见 AUTO_HOMEWORK_DESIGN.md §3.1）
+     only = 纯口语学生：只给拼音，一个汉字都不出现
+     open = HSK1–2 的读题：汉字和拼音都摆出来
+     fold = HSK3 以上的读题：汉字为主，点「看拼音」才展开
+     none = 其余情况：只有汉字
+   老作业（老师手填的那种）没有这些字段，会走 none，行为跟以前一样。 */
+function descHTML(t){
+  const mode=t.py_mode||'none';
+  const zh=String(t.desc||'').trim();
+  const py=String(t.desc_py||'').trim();
+  const en=t.desc_en?'<span class="eng">'+esc(t.desc_en)+'</span>':'';
+  if(!zh && !py) return '';
+
+  if(mode==='only'){
+    // 纯口语学生不认汉字。没标拼音的话宁可整块不显示，
+    // 也【绝不能】把汉字塞给他 —— 他看了等于没看。
+    if(!py) return '';
+    return '<div class="t-desc"><span class="t-py only">'+esc(py)+'</span>'+en+'</div>';
+  }
+
+  let html='<div class="t-desc">'+esc(zh)+en;
+  if(py && mode==='open'){
+    html+='<div class="t-py">'+esc(py)+'</div>';
+  } else if(py && mode==='fold'){
+    html+='<details class="pyfold"><summary>看拼音 · Show pinyin</summary>'+
+          '<div class="t-py">'+esc(py)+'</div></details>';
+  }
+  return html+'</div>';
+}
+
 /* 交完之后，「我交了」气泡里显示学生自己交的东西。
    数据来自 student_login 的 done（V5d 起多回传 file_url / text_answer / type）。
    老数据没有这几个字段，所以最后要有一条兜底。 */
@@ -1043,8 +1091,9 @@ function cardHTML(t,done){
         '<div class="speaker"><span>蔡老师</span><span class="day">· '+(DAYCN[day]||"")+' '+day+'</span>'+
         '<span class="glyph">'+icon(DAYICON[day]||'i-chat','')+'</span>'+tag+'</div>'+
         '<div class="bubble">'+
-          '<div class="t-title">'+esc(t.title||"")+'</div>'+
-          (t.desc?'<div class="t-desc">'+esc(t.desc)+'</div>':'')+
+          '<div class="t-title">'+esc(t.title||"")+
+            (t.title_en?'<span class="eng">'+esc(t.title_en)+'</span>':'')+'</div>'+
+          descHTML(t)+
           mediaHTML+exampleHTML+
         '</div>'+
       '</div>'+
