@@ -857,14 +857,23 @@ function renderStudentDetail(id){
        </div>`
     : `<div class="acts">
          <button class="btn bamboo sm" onclick="customize('${s.id}')">🔧 单独定制</button>
+         <button class="btn cyan sm" onclick="refollowTemplate('${s.id}')">🔄 重新配模板</button>
          <button class="btn gray sm" title="第3阶段上线" disabled>🤖 AI 帮我出一周</button>
        </div>`;
   const active=s.active!==false;
+  // 这个学生现在挂在哪个模板上 —— 没挂上就当场标红，否则老师看不出来他没走自动排课
+  const tk=s.track_id?TRACKS.find(t=>t.id===s.track_id):null;
+  const tkChip = custom
+    ? `<span class="chip">⭐ 专属作业</span>`
+    : (tk&&tk.recipe ? `<span class="chip">📚 ${esc(tk.name)} · 自动排课</span>`
+      : tk ? `<span class="chip">📚 ${esc(tk.name)} · 手工作业</span>`
+      : `<span class="chip" style="background:linear-gradient(180deg,var(--sky-hi),var(--sky));color:var(--sky-ink)">⚠️ 没配模板 · 拿的是默认作业</span>`);
   box.innerHTML=`
     <div class="chips">
       <span class="chip">登录码 ${esc(s.username)}</span>
       <span class="chip">${TYPE_LABEL[s.stu_type]||s.stu_type||'—'}</span>
       <span class="chip hsk">${LEVEL_LABEL[s.stu_level]||s.stu_level||'—'}</span>
+      ${tkChip}
       <span class="chip edit" onclick="openEditProfile('${s.id}')">✏️ 改资料</span>
       <span class="chip" style="cursor:pointer;" onclick="toggleStudent('${s.id}',${active})">${active?'🟢 在用':'⚪ 已停用'}</span>
     </div>
@@ -973,6 +982,21 @@ function openAddStudent(){
     <div id="as_result"></div></div>`;
   window.scrollTo({top:0,behavior:'smooth'});
 }
+/* 按学生的「类型+水平」重新去公共模板里匹配一次。
+   用途：①修那些 track_id 是 null 的老学生（后台建的都是）；②改完模板库之后重配。
+   只给「跟随模板」的学生用 —— 个性化学生点了会把 ta 的专属作业删掉，所以按钮不给他们看。 */
+async function refollowTemplate(id){
+  const s=STUDENTS.find(x=>x.id===id); if(!s) return;
+  const {error}=await sb.rpc('admin_follow_template',{p_student_id:id,p_track_id:null});
+  if(error){ toast('重配失败：'+error.message); return; }
+  await loadStudents();
+  const ns=STUDENTS.find(x=>x.id===id);
+  const tk=ns&&ns.track_id?TRACKS.find(t=>t.id===ns.track_id):null;
+  if(tk&&tk.recipe) toast('配上了：'+tk.name+' ✓ 自动排课');
+  else if(tk)       toast('配上了：'+tk.name+'（这个模板没设配方，还是手工作业）');
+  else              toast('没找到对应的模板 —— 先去模板库建一个');
+  selectStudent(id);
+}
 async function submitAddStudent(){
   const name=document.getElementById('as_name').value.trim();
   const type=document.getElementById('as_type').value;
@@ -983,9 +1007,26 @@ async function submitAddStudent(){
   if(error){toast('加失败：'+error.message);return;}
   const username=data, link=studentLink(username);
   await loadStudents();
-  const ns=STUDENTS.find(x=>x.username===username);
+  let ns=STUDENTS.find(x=>x.username===username);
+  /* ⚠️ 关键一步，别删：`admin_upsert_student` 的 insert【没有】设 track_id
+     （只有学生自助注册的 register_student 才调 match_template）。
+     不补这一刀，老师后台建出来的学生 track_id 是 null → 掉进「默认套餐」→
+     永远拿不到自动排课，而且界面上看不出来。
+     这里用的是跟 saveProfile() 完全一样的做法：admin_follow_template(id, null) 会重新匹配。 */
+  if(ns){
+    const {error:fe}=await sb.rpc('admin_follow_template',{p_student_id:ns.id,p_track_id:null});
+    if(fe){ toast('配模板失败：'+fe.message); }
+    else { await loadStudents(); ns=STUDENTS.find(x=>x.username===username); }
+  }
+  const tk=ns&&ns.track_id?TRACKS.find(t=>t.id===ns.track_id):null;
+  // 配到了有配方的模板才是自动排课；没配到／配到没配方的都要当场说清楚
+  const note = tk&&tk.recipe
+    ? `<div class="follow-note" style="margin-top:10px">已自动配上模板 <b>${esc(tk.name)}</b>，作业由系统每周自动组。</div>`
+    : `<div class="follow-note" style="margin-top:10px">⚠️ <b>没有配到带配方的模板</b>，这个学生现在拿的是默认作业，<b>不是自动排课</b>。<br>
+        去「📚 模板库」确认有一个「${esc(TYPE_LABEL[type]||type)} + ${esc(LEVEL_LABEL[level]||level)}」且设了配方的模板，再回来点「🔄 重新配模板」。</div>`;
   const r=document.getElementById('as_result');
   if(r) r.innerHTML=`<div class="newcode show" style="margin-top:12px;">✅ 建好了：<b>${esc(name)}</b> → 登录码 <b>${esc(username)}</b><br>打卡链接：<br><a href="${esc(link)}" target="_blank">${esc(link)}</a>
+    ${note}
     <div class="rowend" style="margin-top:10px;">${ns?`<button class="btn bamboo sm" onclick="customize('${ns.id}')">🔧 单独定制（给 ta 专属作业）</button>`:''}</div>
     <span style="color:var(--sub);font-size:12px;">或以后从左边点开 ta 再定制。</span></div>`;
 }
