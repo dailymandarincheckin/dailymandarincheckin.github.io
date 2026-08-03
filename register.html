@@ -1,107 +1,255 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Cai Laoshi · Join / 注册</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+<title>蔡老师 · 注册中文打卡</title>
 <style>
-  :root{
-    --cream:#fbf3e4;--cream2:#f5e9d4;--ink:#2a2622;--sub:#8c8175;
-    --persimmon:#e8622d;--cyan:#2e8fb0;--bamboo:#5a8a4a;--glaze:#e8b33d;
-    --line:#e6d8bf;--card:#fffaf0;
+/* ============================================================
+   中文打卡系统 · 注册页「甲 · 暖纸手绘」
+   跟 checkin.html 同一套颜色 / 字体 / 圆角，零外部资源
+   ============================================================ */
+
+:root{
+  --paper:#f7f0e4; --card:#fdf9f0; --card-hi:#fffdf8;
+  --ink:#4a3c2c; --ink2:#7d6a55; --ink3:#a89680;
+  --line:#e5dac7; --line-soft:#eee4d4;
+
+  --clay:#a8683f; --clay-hi:#b87b50; --clay-lo:#9a5c35;
+  --clay-soft:#e8d3c2; --ring:rgba(168,104,63,.16);
+  --on-clay:#fff; --on-clay-soft:rgba(255,255,255,.8);
+
+  --peach:#f0d5c4;  --peach-hi:#f7e2d5;
+  --moss:#d6e0cd;   --moss-hi:#e2eade;
+  --sky:#cfdde6;    --sky-hi:#dde8ef;
+  --sand:#efe0c4;   --sand-hi:#f6ead6;
+  --moss-ink:#5a6b50; --sky-ink:#4c6473; --peach-ink:#8e5a41;
+
+  --grain:rgba(168,150,128,.035); --grain2:rgba(168,150,128,.028);
+  --wash:rgba(255,253,246,.7);
+  --edge:rgba(255,255,255,.72);
+  --edge-in:rgba(120,98,72,.05);
+  --shadow:0 1px 1px rgba(74,60,44,.028), 0 6px 16px -12px rgba(74,60,44,.24);
+  --shadow-lift:0 2px 3px rgba(74,60,44,.035), 0 16px 34px -20px rgba(74,60,44,.34);
+  --shadow-clay:0 1px 1px rgba(90,50,24,.12), 0 8px 16px -10px rgba(150,88,50,.55);
+
+  --r-sm:12px; --r-md:14px; --r-lg:16px; --r-xl:18px; --r-pill:999px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#211b15; --card:#2c251d; --card-hi:#332b22;
+    --ink:#eee4d3; --ink2:#c1b09a; --ink3:#8f8172;
+    --line:#3e3428; --line-soft:#372e24;
+    --clay:#d69465; --clay-hi:#e0a276; --clay-lo:#c88558;
+    --clay-soft:#4a382c; --ring:rgba(214,148,101,.2);
+    --on-clay:#2a2118; --on-clay-soft:rgba(42,33,24,.72);
+    --peach:#5d4436; --peach-hi:#6a5040;
+    --moss:#3f4c3a;  --moss-hi:#4a5844;
+    --sky:#374751;   --sky-hi:#41535e;
+    --sand:#55462d;  --sand-hi:#615137;
+    --moss-ink:#c3d2b8; --sky-ink:#bcd2de; --peach-ink:#e8c0a6;
+    --grain:rgba(255,240,220,.022); --grain2:rgba(255,240,220,.016);
+    --wash:rgba(255,232,200,.04);
+    --edge:rgba(255,240,220,.055); --edge-in:rgba(0,0,0,.18);
+    --shadow:0 1px 2px rgba(0,0,0,.2);
+    --shadow-lift:0 12px 30px -18px rgba(0,0,0,.6);
+    --shadow-clay:0 6px 14px -10px rgba(0,0,0,.6);
   }
-  *{box-sizing:border-box;margin:0;padding:0;}
-  @media (pointer:fine){ *{cursor:none;} }
-  body{
-    font-family:"Poppins","Noto Sans SC",-apple-system,sans-serif;color:var(--ink);
-    background-color:var(--cream);
-    background-image:
-      radial-gradient(circle at 12% 18%, rgba(232,98,45,.06) 0 22%, transparent 22%),
-      radial-gradient(circle at 88% 8%, rgba(46,143,176,.06) 0 18%, transparent 18%),
-      radial-gradient(circle at 78% 92%, rgba(90,138,74,.05) 0 20%, transparent 20%),
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)' opacity='0.04'/%3E%3C/svg%3E");
-    -webkit-font-smoothing:antialiased;overflow-x:hidden;min-height:100vh;
-  }
-  .wrap{max-width:480px;margin:0 auto;padding:44px 22px 80px;min-height:100vh;display:flex;flex-direction:column;justify-content:center;}
+}
+:root[data-theme="dark"]{
+  --paper:#211b15; --card:#2c251d; --card-hi:#332b22;
+  --ink:#eee4d3; --ink2:#c1b09a; --ink3:#8f8172;
+  --line:#3e3428; --line-soft:#372e24;
+  --clay:#d69465; --clay-hi:#e0a276; --clay-lo:#c88558;
+  --clay-soft:#4a382c; --ring:rgba(214,148,101,.2);
+  --on-clay:#2a2118; --on-clay-soft:rgba(42,33,24,.72);
+  --peach:#5d4436; --peach-hi:#6a5040;
+  --moss:#3f4c3a;  --moss-hi:#4a5844;
+  --sky:#374751;   --sky-hi:#41535e;
+  --sand:#55462d;  --sand-hi:#615137;
+  --moss-ink:#c3d2b8; --sky-ink:#bcd2de; --peach-ink:#e8c0a6;
+  --grain:rgba(255,240,220,.022); --grain2:rgba(255,240,220,.016);
+  --wash:rgba(255,232,200,.04);
+  --edge:rgba(255,240,220,.055); --edge-in:rgba(0,0,0,.18);
+  --shadow:0 1px 2px rgba(0,0,0,.2);
+  --shadow-lift:0 12px 30px -18px rgba(0,0,0,.6);
+  --shadow-clay:0 6px 14px -10px rgba(0,0,0,.6);
+}
 
-  #brush{position:fixed;top:0;left:0;width:34px;height:34px;pointer-events:none;z-index:9999;
-    transform:translate(-50%,-50%);transition:transform .08s ease-out;will-change:transform;}
-  @media (pointer:coarse){ #brush{display:none;} }
-  #brush.press{transform:translate(-50%,-40%) scale(.8) rotate(-8deg);}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  /* 圆体只有 Mac / iOS 自带，安卓和 Windows 会 fallback，所以字体栈要写完整 */
+  font-family:"Yuanti SC","STYuanti","Hiragino Sans GB","PingFang SC",
+              "Microsoft YaHei",system-ui,-apple-system,sans-serif;
+  color:var(--ink);background:var(--paper);
+  line-height:1.9;letter-spacing:.3px;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  /* 纸的质感：页顶柔光 + 两层错位细颗粒，纯 CSS，不用图片 */
+  background-image:
+    radial-gradient(120% 70% at 50% -12%, var(--wash), transparent 62%),
+    radial-gradient(var(--grain) .6px, transparent .9px),
+    radial-gradient(var(--grain2) .5px, transparent .8px);
+  background-size:100% 720px, 5px 5px, 7px 7px;
+  background-position:0 0, 0 0, 2px 3px;
+  background-repeat:no-repeat, repeat, repeat;
+  background-attachment:fixed, scroll, scroll;
+  overflow-x:hidden;min-height:100vh;
+}
+button,input,select{font-family:inherit}
 
-  .masthead{text-align:center;margin-bottom:24px;}
-  .masthead .stamp{display:inline-block;background:var(--persimmon);color:#fff;border:2.5px solid var(--ink);
-    border-radius:14px;padding:6px 16px;font-family:"Poppins",sans-serif;font-weight:800;font-size:13px;
-    letter-spacing:2px;transform:rotate(-3deg);box-shadow:3px 3px 0 var(--ink);margin-bottom:16px;}
-  .masthead h2{font-family:"Poppins",sans-serif;font-weight:800;font-size:30px;letter-spacing:-.5px;line-height:1.1;}
-  .masthead h2 .cn{font-weight:900;color:var(--persimmon);}
-  .masthead p{color:var(--sub);font-size:13.5px;margin-top:8px;line-height:1.6;}
+/* 英文一律浅、细、小 —— 中文在前，英文在后 */
+.eng{display:block;font-size:.85em;color:var(--ink3);font-weight:400;letter-spacing:.2px;line-height:1.5}
+.eng-i{display:inline;font-size:.85em;color:var(--ink3);margin-left:6px}
+.gi{width:1em;height:1em;display:block;flex:none;color:inherit}
+:focus-visible{outline:2px solid var(--clay);outline-offset:2px;border-radius:var(--r-sm)}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}
+}
 
-  .card{background:var(--card);border:2.5px solid var(--ink);border-radius:22px;padding:28px 24px;
-    box-shadow:6px 6px 0 rgba(42,38,34,.14);animation:tileIn .45s ease both;}
-  @keyframes tileIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+.wrap{
+  max-width:460px;margin:0 auto;padding:40px 20px 80px;
+  min-height:100vh;display:flex;flex-direction:column;justify-content:center;
+}
 
-  .field{margin-bottom:20px;}
-  .field label{display:block;font-family:"Poppins",sans-serif;font-weight:700;font-size:12px;
-    letter-spacing:1.5px;text-transform:uppercase;color:var(--sub);margin-bottom:8px;}
-  .field input,.field select{width:100%;padding:14px 16px;border:2.5px solid var(--ink);border-radius:14px;
-    font-size:16px;font-family:"Noto Sans SC",sans-serif;background:var(--cream);outline:none;
-    transition:.15s;color:var(--ink);box-shadow:inset 0 0 0 rgba(0,0,0,0);}
-  .field input:focus,.field select:focus{background:#fff;box-shadow:3px 3px 0 var(--cyan);}
-  .field .hint{font-size:12px;color:var(--sub);margin-top:6px;line-height:1.5;}
+/* ---------- 页头 ---------- */
+.masthead{text-align:center;margin-bottom:26px}
+.masthead .art{width:86px;margin:0 auto 16px;color:var(--clay);opacity:.42;position:relative}
+.masthead .art svg{width:100%;height:auto;display:block}
+/* 标题是英文长句，字距要收窄（中文那套 1.6px 会把英文拉散） */
+.masthead h1{font-size:20px;font-weight:600;letter-spacing:.2px;line-height:1.55;text-wrap:balance}
+.masthead p{color:var(--ink2);font-size:13.5px;margin-top:10px;line-height:1.85}
 
-  .btn{width:100%;margin-top:6px;padding:16px;border:2.5px solid var(--ink);border-radius:14px;
-    background:var(--bamboo);color:#fff;font-size:16px;font-weight:700;letter-spacing:1px;
-    font-family:"Poppins",sans-serif;transition:.12s;box-shadow:4px 4px 0 var(--ink);}
-  .btn:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--ink);background:#6a9a58;}
-  .btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink);}
-  .btn:disabled{opacity:.55;box-shadow:4px 4px 0 var(--ink);transform:none;}
+/* ---------- 表单卡 ---------- */
+.card{
+  background:linear-gradient(180deg,var(--card-hi),var(--card));
+  border-radius:var(--r-xl);padding:26px 22px;
+  box-shadow:inset 0 0 0 1px var(--line-soft),inset 0 1px 0 var(--edge),var(--shadow);
+}
+.field{margin-bottom:20px}
+/* 中英并成一行，中间用「·」隔开；英文仍然浅、细、小 */
+.field label{
+  display:block;font-size:13.5px;font-weight:600;color:var(--ink);
+  letter-spacing:.8px;margin-bottom:8px;line-height:1.7;
+}
+.field label .eng-i{font-weight:400;margin-left:5px}
+.field input,.field select{
+  width:100%;padding:13px 15px;border:none;border-radius:var(--r-lg);
+  font-size:16px;background:var(--paper);color:var(--ink);letter-spacing:.3px;
+  box-shadow:inset 0 0 0 1px var(--line),inset 0 2px 4px var(--edge-in);
+  transition:box-shadow .18s ease;
+}
+.field input::placeholder{color:var(--ink3)}
+.field input:focus,.field select:focus{
+  outline:none;box-shadow:inset 0 0 0 1.5px var(--clay),0 0 0 4px var(--ring);
+}
+/* 下拉箭头：内联 SVG（data URI），不引图标库 */
+.field select{
+  appearance:none;-webkit-appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a89680' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M5.8 9.2 12 15.4l6.2-6.2'/></svg>");
+  background-repeat:no-repeat;background-position:right 14px center;background-size:16px;
+  padding-right:40px;
+}
+.field .hint{font-size:12px;color:var(--ink3);margin-top:7px;line-height:1.7;letter-spacing:.2px}
 
-  .err{display:none;margin-top:14px;padding:12px 14px;border-radius:12px;background:rgba(232,98,45,.12);
-    border:2px solid var(--persimmon);color:#b8431c;font-size:13.5px;font-weight:600;line-height:1.5;}
-  .err.show{display:block;animation:shake .35s;}
-  @keyframes shake{0%,100%{transform:translateX(0);}25%{transform:translateX(-6px);}75%{transform:translateX(6px);}}
+.btn{
+  width:100%;margin-top:6px;border:none;border-radius:var(--r-lg);padding:15px;
+  background:linear-gradient(180deg,var(--clay-hi),var(--clay) 58%,var(--clay-lo));
+  color:var(--on-clay);font-size:15.5px;letter-spacing:.8px;cursor:pointer;line-height:1.55;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.24),var(--shadow-clay);
+  transition:transform .16s ease,box-shadow .16s ease;
+}
+.btn:hover{transform:translateY(-1px)}
+.btn:active{transform:translateY(1px);box-shadow:inset 0 2px 5px rgba(90,50,24,.28)}
+.btn .eng{color:var(--on-clay-soft)}
+.btn:disabled{opacity:.6;transform:none;cursor:default}
 
-  /* ===== 成功结果 ===== */
-  #result{display:none;}
-  #result.show{display:block;}
-  .result-card{background:var(--card);border:2.5px solid var(--ink);border-radius:22px;padding:30px 24px;
-    box-shadow:6px 6px 0 rgba(90,138,74,.28);border-color:var(--bamboo);text-align:center;
-    animation:bounceIn .55s cubic-bezier(.2,1.5,.35,1);}
-  @keyframes bounceIn{0%{opacity:0;transform:scale(.6) translateY(24px);}60%{transform:scale(1.04);}100%{opacity:1;transform:scale(1);}}
-  .result-seal{width:80px;height:80px;margin:0 auto 16px;background:var(--bamboo);border:3px solid var(--ink);
-    border-radius:20px;display:flex;align-items:center;justify-content:center;transform:rotate(-6deg);
-    box-shadow:4px 4px 0 var(--ink);}
-  .result-seal span{font-weight:900;font-size:40px;color:#fff;}
-  .result-card h3{font-weight:900;font-size:22px;margin-bottom:4px;}
-  .result-card .sub{color:var(--sub);font-size:13.5px;margin-bottom:20px;font-weight:600;}
-  .codebox{background:var(--cream2);border:2.5px dashed var(--ink);border-radius:14px;padding:16px;margin-bottom:8px;}
-  .codebox .lbl{font-size:11px;letter-spacing:2px;font-weight:700;color:var(--sub);text-transform:uppercase;margin-bottom:6px;}
-  .codebox .code{font-family:"Poppins",sans-serif;font-weight:800;font-size:26px;color:var(--persimmon);letter-spacing:1px;word-break:break-all;}
-  .copybtn{display:inline-block;background:var(--cyan);border:2.5px solid var(--ink);color:#fff;
-    padding:12px 22px;border-radius:12px;font-family:"Poppins",sans-serif;font-weight:700;font-size:14px;
-    box-shadow:3px 3px 0 var(--ink);transition:.12s;margin-top:14px;}
-  .copybtn:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--ink);}
-  .result-note{font-size:12.5px;color:var(--sub);line-height:1.6;margin-top:18px;
-    border-top:2px dashed var(--line);padding-top:16px;}
+/* 出错提示：桃色水彩块，不用红框 */
+.err{
+  display:none;margin-top:16px;padding:12px 15px;border-radius:var(--r-md);
+  background:linear-gradient(180deg,var(--peach-hi),var(--peach));color:var(--peach-ink);
+  font-size:13.5px;line-height:1.75;letter-spacing:.2px;
+  box-shadow:inset 0 1px 0 var(--edge);
+}
+.err.show{display:block;animation:nudge .35s}
+@keyframes nudge{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
 
-  .confetti{position:fixed;top:-20px;width:12px;height:12px;z-index:1001;pointer-events:none;border-radius:2px;}
+/* ---------- 成功结果 ---------- */
+#result{display:none}
+#result.show{display:block}
+.result-card{
+  background:
+    radial-gradient(130% 66% at 50% 0%, var(--peach-hi), transparent 72%),
+    linear-gradient(180deg,var(--sand-hi),var(--card) 62%);
+  border-radius:22px;padding:32px 24px 28px;text-align:center;
+  box-shadow:inset 0 0 0 1.5px var(--sand),inset 0 1px 0 var(--edge),var(--shadow-lift);
+  animation:popIn .5s cubic-bezier(.2,1.4,.35,1);
+}
+@keyframes popIn{0%{opacity:0;transform:scale(.88) translateY(18px)}100%{opacity:1;transform:none}}
+/* 印章：空心描边，跟打卡页的庆祝印章同一个做法 */
+.result-seal{
+  width:80px;height:80px;margin:0 auto 18px;border-radius:23px;
+  color:var(--peach-ink);position:relative;box-shadow:inset 0 0 0 2px currentColor;
+  display:flex;align-items:center;justify-content:center;
+  font-size:40px;transform:rotate(-6deg);line-height:1;
+}
+.result-seal::after{content:"";position:absolute;inset:6px;border-radius:15px;box-shadow:inset 0 0 0 1px currentColor;opacity:.4}
+.result-card h2{font-size:19px;font-weight:600;letter-spacing:1.4px;line-height:1.7;color:var(--ink)}
+.result-card .sub{color:var(--ink3);font-size:13px;margin-top:4px;margin-bottom:20px;line-height:1.7}
 
-  .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(90px);
-    background:var(--ink);color:#fff;padding:13px 24px;border-radius:30px;font-size:14px;font-weight:600;letter-spacing:.5px;
-    opacity:0;transition:.3s cubic-bezier(.2,1.3,.4,1);z-index:99;border:2.5px solid var(--glaze);}
-  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.codebox{
+  background:var(--paper);border-radius:var(--r-md);padding:15px;margin-bottom:6px;
+  box-shadow:inset 0 0 0 1px var(--line-soft),inset 0 1px 2px var(--edge-in);
+}
+.codebox .lbl{font-size:11.5px;color:var(--ink3);letter-spacing:.5px;margin-bottom:5px;line-height:1.6}
+.codebox .code{
+  font-size:25px;font-weight:600;color:var(--clay);letter-spacing:1.5px;
+  word-break:break-all;line-height:1.5;
+}
+.copybtn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;
+  margin-top:16px;border:none;border-radius:var(--r-lg);padding:14px;
+  background:linear-gradient(180deg,var(--peach-hi),var(--peach));
+  color:var(--peach-ink);font-size:15px;cursor:pointer;letter-spacing:.6px;
+  line-height:1.5;font-weight:600;flex-direction:column;
+  box-shadow:inset 0 1px 0 var(--edge),0 6px 14px -10px rgba(142,90,65,.7);
+  transition:transform .16s ease;
+}
+.copybtn>span:first-child{display:flex;align-items:center;gap:8px}
+.copybtn .gi{width:16px;height:16px}
+.copybtn:hover{transform:translateY(-1px)}
+.copybtn:active{transform:translateY(1px)}
+.copybtn .eng{color:var(--peach-ink);opacity:.7;font-weight:400}
+
+.result-note{
+  font-size:12.5px;color:var(--ink2);line-height:1.9;margin-top:20px;
+  border-top:1px dashed var(--line);padding-top:16px;text-align:left;letter-spacing:.2px;
+}
+.result-note b{color:var(--ink);font-weight:600}
+.result-note .eng{margin-top:6px}
+
+.confetti{position:fixed;top:-20px;width:8px;height:12px;z-index:1001;pointer-events:none;border-radius:2.5px}
+
+.toast{
+  position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(90px);
+  background:var(--ink);color:var(--paper);font-size:13.5px;padding:12px 22px;
+  border-radius:var(--r-md);letter-spacing:.2px;line-height:1.7;max-width:86vw;text-align:center;
+  opacity:0;transition:.3s cubic-bezier(.2,1.3,.4,1);z-index:1100;box-shadow:var(--shadow-lift);
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>
 <body>
 
-<svg id="brush" viewBox="0 0 34 34" fill="none">
-  <path d="M17 3 C 20 10, 21 15, 18 22 C 17 25, 16 25, 15 22 C 13 15, 14 10, 17 3 Z" fill="#2a2622"/>
-  <path d="M17 3 C 19 9, 20 14, 18 20" stroke="#e8622d" stroke-width="1.2" stroke-linecap="round"/>
-  <circle cx="16.5" cy="24" r="2.4" fill="#e8622d"/>
+<!-- 内联 SVG 图标库：跟着 currentColor 走，零外部资源 -->
+<svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+  <symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10.1 13.9a4.4 4.4 0 0 0 6.6.5l2.6-2.6a4.4 4.4 0 0 0-6.2-6.2l-1.5 1.5"></path>
+    <path d="M13.9 10.1a4.4 4.4 0 0 0-6.6-.5l-2.6 2.6a4.4 4.4 0 0 0 6.2 6.2l1.5-1.5"></path>
+  </symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 21.4s6.8-6 6.8-11a6.8 6.8 0 1 0-13.6 0c0 5 6.8 11 6.8 11Z"></path>
+    <circle cx="12" cy="10.2" r="2.4"></circle>
+  </symbol>
 </svg>
 
 <div class="wrap">
@@ -109,37 +257,50 @@
   <!-- 注册表单 -->
   <div id="form">
     <div class="masthead">
-      <div class="stamp">CAI LAOSHI</div>
-      <h2>Join the <span class="cn">打卡</span> Club</h2>
-      <p>Get your own login code and start your daily Chinese check-in.<br>拿到你的专属登录码，开始每日中文打卡。</p>
+      <div class="art" aria-hidden="true">
+        <!-- 手绘：一支笔划过一道弧线 -->
+        <svg viewBox="0 0 74 34" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 26c8-1.5 12-13 21-13s10 11 18 10 12-11 20-12"></path>
+          <circle cx="24" cy="8" r="1.8"></circle>
+          <circle cx="53" cy="6" r="1.2"></circle>
+          <path d="M8 32h58" stroke-dasharray="2 6" opacity=".6"></path>
+        </svg>
+      </div>
+      <!-- 标题走全英文（用户指定）；下面的说明仍然中文在前 -->
+      <h1>Welcome to Our Daily Mandarin Check-in Club!</h1>
+      <!-- 长句子仍然分两行：并成一行的话「·」会被甩到行尾，英文换行很乱 -->
+      <p>填好下面四项，就能拿到你自己的打卡链接。<span class="eng">Fill in these four things and get your own check-in link.</span></p>
     </div>
 
     <div class="card">
       <div class="field">
-        <label for="name">Your name · 你的名字</label>
-        <input id="name" type="text" autocomplete="off" placeholder="e.g. Ashraf" maxlength="30">
-        <div class="hint">用英文名字，会变成你的登录码，例如 Ashraf → ashraf2048</div>
+        <label for="name">你的名字<span class="eng-i">· Your name</span></label>
+        <input id="name" type="text" autocomplete="off" placeholder="例如 Ashraf" maxlength="30">
+        <div class="hint">用英文名字，会变成你的登录码，例如 Ashraf → ashraf2048<span class="eng">Use your English name — it becomes your login code.</span></div>
       </div>
+
       <div class="field">
-        <label for="code">Class code · 班级暗号</label>
-        <input id="code" type="text" autocomplete="off" placeholder="Ask your teacher" maxlength="30">
-        <div class="hint">老师给你的暗号（不填对不能注册哦）</div>
+        <label for="code">班级暗号<span class="eng-i">· Class code</span></label>
+        <input id="code" type="text" autocomplete="off" placeholder="问老师拿" maxlength="30">
+        <div class="hint">老师给你的暗号，填对了才能注册。<span class="eng">Ask your teacher for this code.</span></div>
       </div>
+
       <div class="field">
-        <label for="stype">I want to learn · 我想学</label>
+        <label for="stype">我想学<span class="eng-i">· I want to learn</span></label>
         <select id="stype">
-          <option value="">— choose 选一个 —</option>
-          <option value="oral">🗣️ Speaking only · 纯口语（不学汉字）</option>
-          <option value="oral_plus">🗣️📝 Mostly speaking · 口语为主（带一点汉字）</option>
-          <option value="full">📚 All skills · 综合（听说读写）</option>
-          <option value="hsk">🎯 HSK exam · 应试备考</option>
-          <option value="business">💼 Business · 商务职场</option>
+          <option value="">— 选一个 · choose one —</option>
+          <option value="oral">纯口语（不学汉字）· Speaking only</option>
+          <option value="oral_plus">口语为主（带一点汉字）· Mostly speaking</option>
+          <option value="full">综合（听说读写）· All skills</option>
+          <option value="hsk">HSK 应试备考 · HSK exam</option>
+          <option value="business">商务职场 · Business</option>
         </select>
       </div>
+
       <div class="field">
-        <label for="slevel">My level · 我的水平</label>
+        <label for="slevel">我的水平<span class="eng-i">· My level</span></label>
         <select id="slevel">
-          <option value="">— choose 选一个 —</option>
+          <option value="">— 选一个 · choose one —</option>
           <option value="pinyin">零基础（拼音）· Pinyin first (from scratch)</option>
           <option value="hsk1">HSK 1</option>
           <option value="hsk2">HSK 2</option>
@@ -149,7 +310,8 @@
           <option value="hsk6">HSK 6</option>
         </select>
       </div>
-      <button class="btn" id="goBtn" onclick="doRegister()">Get my code · 生成登录码</button>
+
+      <button class="btn" id="goBtn" onclick="doRegister()">生成我的登录码<span class="eng">Get my code</span></button>
       <div class="err" id="err"></div>
     </div>
   </div>
@@ -157,20 +319,24 @@
   <!-- 成功结果 -->
   <div id="result">
     <div class="result-card">
-      <div class="result-seal"><span>成</span></div>
-      <h3>Welcome, <span id="rName"></span>! 🎉</h3>
+      <div class="result-seal">成</div>
+      <h2>欢迎你，<span id="rName"></span>！</h2>
       <div class="sub">你的账号建好了 · Your account is ready</div>
 
       <div class="codebox">
-        <div class="lbl">Your login code · 你的登录码</div>
+        <div class="lbl">你的登录码 · Your login code</div>
         <div class="code" id="rCode"></div>
       </div>
-      <a class="copybtn" id="copyLink" onclick="copyLink()">🔗 Copy my check-in link · 复制打卡链接</a>
+
+      <button class="copybtn" id="copyLink" onclick="copyLink()">
+        <span><svg class="gi" aria-hidden="true"><use href="#i-link"></use></svg>复制我的打卡链接</span>
+        <span class="eng">Copy my check-in link</span>
+      </button>
 
       <div class="result-note">
-        📌 <b>请把这个链接存进手机</b>（加书签或发给自己）。<br>
-        以后打开这个链接就能直接打卡，不用密码。<br>
-        Save this link — open it anytime to check in. No password needed.
+        <b>请把这个链接存进手机</b>（加书签，或发给自己）。<br>
+        以后打开这个链接就能直接打卡，不用密码。
+        <span class="eng">Save this link — open it anytime to check in. No password needed.</span>
       </div>
     </div>
   </div>
@@ -183,23 +349,20 @@
 /* ===== 配置 ===== */
 const SUPABASE_URL = "https://qgtlqiszzgdkjbfpejef.supabase.co";
 const ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFndGxxaXN6emdka2piZnBlamVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ1MjI4MzAsImV4cCI6MjEwMDA5ODgzMH0.nPh9EVcu7y7gyhiF2RpplU49rUhCv_pmy-lvuCfLYXM";
-// T3 部署后，如需固定打卡页网址可在这里填；留空则自动用同目录的 checkin.html
+// 如需固定打卡页网址可在这里填；留空则自动用同目录的 checkin.html
 const CHECKIN_BASE = "";
-
-/* 光标 */
-const brush=document.getElementById('brush');
-let bx=innerWidth/2,by=innerHeight/2,tx=bx,ty=by;
-addEventListener('mousemove',e=>{tx=e.clientX;ty=e.clientY;});
-(function anim(){bx+=(tx-bx)*.35;by+=(ty-by)*.35;brush.style.left=bx+'px';brush.style.top=by+'px';requestAnimationFrame(anim);})();
-addEventListener('mousedown',()=>brush.classList.add('press'));
-addEventListener('mouseup',()=>brush.classList.remove('press'));
-addEventListener('mouseover',e=>{if(e.target.closest('button,input,a,.copybtn'))brush.classList.add('press');});
-addEventListener('mouseout',e=>{if(e.target.closest('button,input,a,.copybtn'))brush.classList.remove('press');});
 
 let myLink="";
 
 function showErr(msg){ const e=document.getElementById('err'); e.textContent=msg; e.classList.add('show'); }
 function hideErr(){ document.getElementById('err').classList.remove('show'); }
+
+/* 按钮文字：中文在前，英文在后 */
+function setBtn(zh,en,disabled){
+  const b=document.getElementById('goBtn');
+  b.disabled=!!disabled;
+  b.innerHTML=zh+'<span class="eng">'+en+'</span>';
+}
 
 async function doRegister(){
   hideErr();
@@ -212,8 +375,7 @@ async function doRegister(){
   if(!stype){ showErr("请选你想学什么 · Please choose what you want to learn."); return; }
   if(!slevel){ showErr("请选你的水平 · Please choose your level."); return; }
 
-  const btn=document.getElementById('goBtn');
-  btn.disabled=true; btn.textContent="Creating… 生成中";
+  setBtn("生成中…","Creating",true);
 
   try{
     const res=await fetch(SUPABASE_URL+"/rest/v1/rpc/register_student",{
@@ -228,7 +390,7 @@ async function doRegister(){
       if(/BAD_CODE/.test(m)){ showErr("暗号不对，请找老师确认 · Wrong class code. Ask your teacher."); }
       else if(/NO_NAME/.test(m)){ showErr("名字不能为空 · Name can't be empty."); }
       else{ showErr("注册失败，请稍后再试 · Something went wrong, please retry."); }
-      btn.disabled=false; btn.textContent="Get my code · 生成登录码";
+      setBtn("生成我的登录码","Get my code",false);
       return;
     }
     // 成功：返回的是 username 字符串
@@ -236,7 +398,7 @@ async function doRegister(){
     showResult(name, username);
   }catch(err){
     showErr("连不上服务器，请检查网络 · Can't reach server, check your internet.");
-    btn.disabled=false; btn.textContent="Get my code · 生成登录码";
+    setBtn("生成我的登录码","Get my code",false);
   }
 }
 
@@ -261,7 +423,7 @@ function showResult(name, username){
 function copyLink(){
   if(!myLink) return;
   navigator.clipboard.writeText(myLink).then(
-    ()=>toast("Link copied! 链接已复制 ✓"),
+    ()=>toast("链接已复制！ · Link copied ✓"),
     ()=>{
       // 退路：用 prompt 让用户手动复制
       window.prompt("复制这个链接 · Copy this link:", myLink);
@@ -270,15 +432,17 @@ function copyLink(){
 }
 
 function shootConfetti(){
-  const colors=["#e8622d","#2e8fb0","#5a8a4a","#e8b33d","#2a2622"];
-  for(let i=0;i<60;i++){
+  // 彩屑用水彩四色，跟打卡页的庆祝一致
+  const colors=["#f0d5c4","#d6e0cd","#cfdde6","#efe0c4","#a8683f"];
+  for(let i=0;i<48;i++){
     const c=document.createElement('div');
     c.className="confetti";
     c.style.left=Math.random()*100+"vw";
     c.style.background=colors[Math.floor(Math.random()*colors.length)];
+    if(i%3===0){ c.style.width="9px"; c.style.height="9px"; c.style.borderRadius="50%"; }
     c.style.transform="rotate("+Math.random()*360+"deg)";
     const dur=2+Math.random()*1.5;
-    c.style.transition=`top ${dur}s ease-in, transform ${dur}s linear, opacity ${dur}s`;
+    c.style.transition="top "+dur+"s ease-in, transform "+dur+"s linear, opacity "+dur+"s";
     document.body.appendChild(c);
     requestAnimationFrame(()=>{ c.style.top=(100+Math.random()*20)+"vh"; c.style.transform="rotate("+(720+Math.random()*360)+"deg)"; c.style.opacity="0"; });
     setTimeout(()=>c.remove(),dur*1000+200);
@@ -290,7 +454,7 @@ function toast(msg){
   const t=document.getElementById('toast');
   t.textContent=msg;t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),2600);
 }
 
 /* 回车提交 */
