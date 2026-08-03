@@ -971,6 +971,34 @@ function stepsHTML(day,hasAudio,isDone){
   return '<div class="steps">'+html+'</div>';
 }
 
+/* 交完之后，「我交了」气泡里显示学生自己交的东西。
+   数据来自 student_login 的 done（V5d 起多回传 file_url / text_answer / type）。
+   老数据没有这几个字段，所以最后要有一条兜底。 */
+function sentHTML(day, isUpload){
+  const s=(SERVER_DONE||{})[day]||{};
+  if(s.text_answer){
+    return '<div class="mytext">'+esc(s.text_answer)+'</div>';
+  }
+  if(s.file_url){
+    const u=esc(s.file_url), low=String(s.file_url).toLowerCase();
+    if(/\.(mp3|m4a|wav|ogg|aac|webm)($|\?)/.test(low)){
+      return '<button class="recbtn mine" onclick="playMySent(\''+day+'\')">'+
+             '<span>'+icon('i-play')+'<span id="sent_'+day+'">听一下我交的录音</span></span>'+
+             '<span class="eng">Play what I sent</span></button>'+
+             '<audio id="sa_'+day+'" src="'+u+'" preload="none" onended="sentEnded(\''+day+'\')"></audio>';
+    }
+    if(/\.(jpg|jpeg|png|gif|webp|heic|heif)($|\?)/.test(low)){
+      return '<div class="t-img" style="margin-top:0"><img src="'+u+'" alt=""></div>';
+    }
+    return '<a class="filelink" style="margin-top:0" href="'+u+'" target="_blank" rel="noopener">'+
+           icon('i-clip')+'我交的文件<span class="eng-i">What I sent</span></a>';
+  }
+  // 兜底：拿不到具体内容（老数据，或刚交完还没同步回来）
+  return isUpload
+    ? '<div class="myfile"><span class="ic">'+icon('i-headset')+'</span><span>作业已经交上去了<span class="eng">Your work has been sent</span></span></div>'
+    : '<div class="myfile"><span class="ic">'+icon('i-keyboard')+'</span><span>回答已经交上去了<span class="eng">Your answer has been sent</span></span></div>';
+}
+
 /* ===== 一天的对话流 =====
    老师气泡（出题）→ 分步条 → 我的回答气泡 →（交了之后）老师评语气泡 */
 function cardHTML(t,done){
@@ -1027,9 +1055,7 @@ function cardHTML(t,done){
 
   /* --- 我的回答 --- */
   if(isDone){
-    const kind = isUpload
-      ? '<div class="myfile"><span class="ic">'+icon('i-headset')+'</span><span>作业已经交上去了<span class="eng">Your work has been sent</span></span></div>'
-      : '<div class="myfile"><span class="ic">'+icon('i-keyboard')+'</span><span>回答已经交上去了<span class="eng">Your answer has been sent</span></span></div>';
+    const kind = sentHTML(day, isUpload);
     html+='<div class="turn me">'+
       '<div class="ava me">'+icon('i-student','')+'</div>'+
       '<div class="bubblewrap"><div class="speaker">我交了<span class="eng-i">Sent</span></div>'+
@@ -1375,6 +1401,26 @@ function playMine(day){
     ()=>{ if(l) l.textContent="播放中… 点一下停"; },
     ()=>{ if(l) l.textContent="听一下我的录音"; toast("播放失败，请再点一次 · Tap again"); });
 }
+/* 播放「已经交上去」的那段录音。
+   跟 playMine() 分开 —— 那个放的是还没交的本地录音，这个放的是服务器上的。 */
+function playMySent(day){
+  const a=document.getElementById('sa_'+day); if(!a) return;
+  const l=document.getElementById('sent_'+day);
+  if(!a.paused){                                   // 正在播 → 停
+    a.pause(); a.currentTime=0;
+    if(l) l.textContent="听一下我交的录音";
+    return;
+  }
+  a.currentTime=0;
+  safePlay(a,
+    ()=>{ if(l) l.textContent="播放中… 点一下停"; },
+    ()=>{ if(l) l.textContent="听一下我交的录音"; toast("播放失败，请再点一次 · Tap again"); });
+}
+function sentEnded(day){
+  const l=document.getElementById('sent_'+day);
+  if(l) l.textContent="再听一次 Play again";
+}
+
 function togglePast(){ showPast=!showPast; renderTask(); }
 
 /* 上传型提交 */
