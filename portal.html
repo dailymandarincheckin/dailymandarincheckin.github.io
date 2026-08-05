@@ -494,6 +494,30 @@ audio{width:100%;margin-bottom:10px;}
 }
 .frow .count{margin-left:auto;font-size:13px;font-weight:600;color:var(--ink3);}
 
+/* 题库列表：默认一行一道，点开才编辑 */
+.bank-bar{display:flex;gap:8px;align-items:center;margin-bottom:12px;}
+.bank-bar input{flex:1;margin:0;}
+.qrow{
+  background:linear-gradient(180deg,var(--card-hi),var(--card));
+  border-radius:var(--r-sm);margin-bottom:6px;
+  box-shadow:inset 0 0 0 1px var(--line-soft),inset 0 1px 0 var(--edge);
+}
+.qrow.open{box-shadow:inset 0 0 0 1.5px var(--clay),inset 0 1px 0 var(--edge),var(--shadow);}
+.qhead{display:flex;align-items:center;gap:9px;padding:10px 13px;cursor:pointer;}
+.qhead:hover{color:var(--clay);}
+.qhead .qk{
+  font-size:11px;font-weight:700;border-radius:var(--r-pill);padding:2px 9px;flex:0 0 auto;
+  background:var(--paper);color:var(--ink2);box-shadow:inset 0 0 0 1px var(--line-soft);
+}
+.qhead .qt{flex:1;font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.qhead .qf{
+  font-size:11px;font-weight:700;border-radius:var(--r-pill);padding:2px 8px;flex:0 0 auto;
+  background:linear-gradient(180deg,var(--sky-hi),var(--sky));color:var(--sky-ink);
+}
+.qhead .qc{font-size:12px;color:var(--ink3);flex:0 0 auto;}
+.qbody{padding:0 13px;}
+.qbody:not(:empty){padding:2px 13px 13px;}
+
 @media(max-width:640px){.hub{flex-direction:column;}.hub-side,.hub-side.collapsed{width:100%;flex:1 1 auto;}}
 </style>
 </head>
@@ -580,7 +604,8 @@ audio{width:100%;margin-bottom:10px;}
     <div class="panel" id="panel-bank">
       <div class="sechead"><span class="dot"></span><span>题库 · 自动排课从这里取题</span></div>
       <div class="filters" id="bankFilters"></div>
-      <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+      <div class="bank-bar">
+        <input id="bankSearch" placeholder="搜标题、正文或编号，如：价钱 / L2" oninput="bankQ=this.value;renderBankList()">
         <button class="btn cyan sm" onclick="openAddQuestion()">＋ 加一道题</button>
       </div>
       <div id="bankBody"><div class="spin"></div></div>
@@ -1183,7 +1208,7 @@ async function previewWeeks(trackId){
 }
 
 /* ---------- 题库（自动排课的题从这里来） ---------- */
-let QUESTIONS=[], bankSkill='', bankLevel='';
+let QUESTIONS=[], bankSkill='', bankLevel='', bankQ='', bankOpen={};
 
 async function loadQuestions(){
   const {data,error}=await sb.from('questions').select('*')
@@ -1191,28 +1216,79 @@ async function loadQuestions(){
   if(error){ toast("读题库失败："+error.message); return; }
   QUESTIONS=data||[]; renderBank();
 }
-function renderBank(){
-  const box=document.getElementById('bankBody'); if(!box) return;
-  const list=QUESTIONS.filter(q=>
-    (!bankSkill||q.skill===bankSkill) && (!bankLevel||q.level===bankLevel));
-  document.getElementById('bankFilters').innerHTML=
+/* 当前筛选＋搜索之后剩下哪些题 */
+function bankList(){
+  const kw=bankQ.trim().toLowerCase();
+  return QUESTIONS.filter(q=>{
+    if(bankSkill && q.skill!==bankSkill) return false;
+    if(bankLevel && q.level!==bankLevel) return false;
+    if(!kw) return true;
+    return [q.code,q.title,q.title_en,q.description,q.description_en]
+      .some(v=>String(v||'').toLowerCase().includes(kw));
+  });
+}
+/* 整个题库页重画（筛选条 + 列表）。搜索框在静态 HTML 里，不在这里重画 —— 重画会掉输入焦点 */
+function renderBank(){ renderBankFilters(); renderBankList(); }
+
+function renderBankFilters(){
+  const box=document.getElementById('bankFilters'); if(!box) return;
+  box.innerHTML=
     '<div class="frow"><span class="fl">技能</span>'+
     ['',...SKILL_ORDER].map(s=>'<button class="f'+(bankSkill===s?' on':'')+
       '" onclick="bankSkill=\''+s+'\';renderBank()">'+(s?SKILL_CN[s]:'全部')+'</button>').join('')+
     '</div><div class="frow"><span class="fl">水平</span>'+
     ['',...LEVEL_KEYS].map(l=>'<button class="f'+(bankLevel===l?' on':'')+
       '" onclick="bankLevel=\''+l+'\';renderBank()">'+(l?LEVEL_LABEL[l]:'全部')+'</button>').join('')+
-    '<span class="count">'+list.length+' 道</span></div>';
-  if(!list.length){ box.innerHTML='<div class="muted">这个条件下还没有题。点右上角「＋ 加一道题」。</div>'; return; }
+    '<span class="count" id="bankCount"></span></div>';
+}
+
+/* 列表：一行一道，只显示编号/标题/毛病。点一行才展开编辑器。 */
+function renderBankList(){
+  const box=document.getElementById('bankBody'); if(!box) return;
+  const list=bankList();
+  const c=document.getElementById('bankCount'); if(c) c.textContent=list.length+' 道';
+  if(!list.length){
+    box.innerHTML='<div class="muted">'+(bankQ.trim()?'没搜到。换个词，或把上面的筛选点回「全部」。'
+      :'这个条件下还没有题。点右上角「＋ 加一道题」。')+'</div>';
+    return;
+  }
   box.innerHTML=list.map(q=>{
+    const flags=[];
+    // 这两条跟 build_week_tasks() 的安全规则一一对应，是「这道题会不会被跳过」的直接原因
+    if(q.skill==='listen' && !String(q.media_url||'').trim()) flags.push('缺录音');
+    if(!String(q.description_pinyin||'').trim())              flags.push('缺拼音');
+    return '<div class="qrow'+(bankOpen[q.id]?' open':'')+'" id="qr_'+q.id+'">'+
+      '<div class="qhead" onclick="toggleQ(\''+q.id+'\')">'+
+        '<span class="qk">'+esc(SKILL_CN[q.skill]||q.skill)+'</span>'+
+        '<span class="qc">'+esc(LEVEL_LABEL[q.level]||q.level)+(q.code?' · '+esc(q.code):'')+'</span>'+
+        '<span class="qt">'+esc(q.title||'（没有标题）')+'</span>'+
+        flags.map(f=>'<span class="qf">'+f+'</span>').join('')+
+        '<span class="qc">'+(bankOpen[q.id]?'▾':'▸')+'</span>'+
+      '</div>'+
+      '<div class="qbody" id="qb_'+q.id+'">'+(bankOpen[q.id]?questionEditorHTML(q):'')+'</div>'+
+    '</div>';
+  }).join('');
+}
+
+/* 展开／收起一道题。
+   ⚠️ 这里【只动这一行】，不调 renderBankList() —— 整页重画会把【其它已展开、还没保存】的编辑冲掉。 */
+function toggleQ(id){
+  const q=QUESTIONS.find(x=>x.id===id); if(!q) return;
+  const body=document.getElementById('qb_'+id), row=document.getElementById('qr_'+id);
+  if(!body||!row) return;
+  if(bankOpen[id]){ delete bankOpen[id]; body.innerHTML=''; row.classList.remove('open'); }
+  else            { bankOpen[id]=true;   body.innerHTML=questionEditorHTML(q); row.classList.add('open'); }
+  const chev=row.querySelector('.qhead .qc:last-child');
+  if(chev) chev.textContent=bankOpen[id]?'▾':'▸';
+}
+
+function questionEditorHTML(q){
     const noPy   = !((q.description_pinyin||'').trim());
     const noMedia= !((q.media_url||'').trim());
     // 跟 build_week_tasks() 的两条安全规则对应：听力题没录音进不了池子
     const warn = (q.skill==='listen' && noMedia)
       ? '<div class="follow-note" style="margin-top:8px">⚠️ 听力题没有录音，<b>自动排课会跳过它</b>。传了语音才算数。</div>' : '';
-    return '<div class="task-row">'+
-      '<div class="dtag">'+esc(SKILL_CN[q.skill]||q.skill)+' · '+esc(LEVEL_LABEL[q.level]||q.level)+
-        (q.code?' · '+esc(q.code):'')+'</div>'+
+    return ''+
       '<div class="grid2" style="margin-bottom:8px">'+
         '<input id="q_title_'+q.id+'" value="'+esc(q.title||'')+'" placeholder="标题">'+
         '<input id="q_title_en_'+q.id+'" value="'+esc(q.title_en||'')+'" placeholder="标题英文">'+
@@ -1239,8 +1315,7 @@ function renderBank(){
         '</select>'+
         // 「删掉」推到最右边，别紧挨着「保存」，免得点错
         '<button class="btn danger sm" style="margin-left:auto" onclick="deleteQuestion(\''+q.id+'\')">删掉</button>'+
-      '</div></div>';
-  }).join('');
+      '</div>';
 }
 
 /* 题库里每道题的语音／图片。
@@ -1302,18 +1377,26 @@ async function deleteQuestion(id){
   if(!confirm("确定删掉这道题？删了就不会再轮到它。")) return;
   const {error}=await sb.from('questions').delete().eq('id',id);
   if(error){ toast("删除失败："+error.message); return; }
+  delete bankOpen[id];
   toast("已删除");
   await loadQuestions();
 }
 async function openAddQuestion(){
-  const {error}=await sb.from('questions').insert({
+  const {data,error}=await sb.from('questions').insert({
     skill: bankSkill||'speak', level: bankLevel||'hsk1',
     title:'新题目', title_en:'New task',
     description:'', description_en:'', answer_type:'upload'
   }).select().single();
   if(error){ toast("加题失败："+error.message); return; }
-  toast("加好了，往下滚改内容");
+  // 新题直接展开并滚到眼前 —— 不然它混在几十行里，老师还得自己找
+  bankQ=''; const sb2=document.getElementById('bankSearch'); if(sb2) sb2.value='';
+  if(data&&data.id) bankOpen[data.id]=true;
   await loadQuestions();
+  if(data&&data.id){
+    const el=document.getElementById('qr_'+data.id);
+    if(el) el.scrollIntoView({behavior:'smooth',block:'center'});
+  }
+  toast("加好了 ✓ 已经帮你展开");
 }
 
 async function renderTasksTab(){
