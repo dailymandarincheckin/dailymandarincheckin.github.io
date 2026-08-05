@@ -1325,8 +1325,9 @@ function renderBankList(){
     // 这两条跟 build_week_tasks() 的安全规则一一对应，是「这道题会不会被跳过」的直接原因
     if(q.skill==='listen' && !String(q.media_url||'').trim()) flags.push('缺录音');
     if(!String(q.description_pinyin||'').trim())              flags.push('缺拼音');
-    // 没标话题的题谁都拿得到 —— 包括还没学过这个内容的学生，所以要标出来
-    if(!String(q.topic||'').trim())                           flags.push('缺话题');
+    // 没标话题的题谁都拿得到 —— 包括还没学过这个内容的学生，所以要标出来。
+    // 发音题例外：声调、轻声、变调跟「学过什么内容」无关，本来就该谁都能做，不标话题是对的。
+    if(q.skill!=='pinyin' && !String(q.topic||'').trim())     flags.push('缺话题');
     return '<div class="qrow'+(bankOpen[q.id]?' open':'')+'" id="qr_'+q.id+'">'+
       '<div class="qhead" onclick="toggleQ(\''+q.id+'\')">'+
         '<span class="qk">'+esc(SKILL_CN[q.skill]||q.skill)+'</span>'+
@@ -1410,13 +1411,100 @@ function questionMediaHTML(q){
     else if(/\.(jpg|jpeg|png|gif|webp|heic|heif)($|\?)/.test(low)) show='<img src="'+esc(u)+'" alt="">';
     else show='<a href="'+esc(u)+'" target="_blank" rel="noopener">附件</a>';
   }
+  // 录音的四种状态：没在录 / 准备中 / 录音中 / 录好了还没采用
+  const st=QREC[q.id]||{};
+  let rec;
+  if(st.on && st.warm){
+    rec='<button class="btn sm" onclick="qStopRec(\''+q.id+'\')">⏳ 准备中…先别说话</button>';
+  }else if(st.on){
+    rec='<button class="btn sm" onclick="qStopRec(\''+q.id+'\')">⏹ 请说！点这里停 · <span id="qrt_'+q.id+'">0:00</span></button>';
+  }else if(st.url){
+    rec='<audio controls src="'+st.url+'" style="margin:6px 0"></audio>'+
+        '<div class="rowend"><button class="btn sm" onclick="qUseRec(\''+q.id+'\')">✓ 就用这段</button>'+
+        '<button class="btn ghost sm" onclick="qStartRec(\''+q.id+'\')">重录</button></div>';
+  }else{
+    rec='<button class="btn cyan sm" onclick="qStartRec(\''+q.id+'\')">🎙 直接录音</button>'+
+        '<button class="btn cyan sm" onclick="document.getElementById(\'qf_'+q.id+'\').click()">传文件</button>'+
+        (u?'<button class="btn ghost sm" onclick="removeQuestionMedia(\''+q.id+'\')">移除</button>':'');
+  }
   return '<div class="mediabox" id="qm_'+q.id+'"><div><b>题目的语音／图片</b>'+
     (u?'<span class="mtag">已有</span>':'')+'</div>'+show+
-    '<div class="rowend">'+
-      '<input type="file" id="qf_'+q.id+'" style="display:none" onchange="uploadQuestionMedia(\''+q.id+'\')">'+
-      '<button class="btn cyan sm" onclick="document.getElementById(\'qf_'+q.id+'\').click()">传文件</button>'+
-      (u?'<button class="btn ghost sm" onclick="removeQuestionMedia(\''+q.id+'\')">移除</button>':'')+
-    '</div></div>';
+    '<input type="file" id="qf_'+q.id+'" style="display:none" onchange="uploadQuestionMedia(\''+q.id+'\')">'+
+    (st.url?rec:'<div class="rowend">'+rec+'</div>')+
+    '</div>';
+}
+
+/* ---------- 题库页「直接录音」（写 questions 表）----------
+   ⚠️ 不能复用老师端的 tStartRec/tUseRec —— 那一套的目标表写死是
+   track_tasks / task_templates，永远不会写 questions。
+   状态也分开放在 QREC，跟作业页的 TREC 互不干扰。 */
+const QREC={};
+function refreshQuestionMedia(id){
+  const q=QUESTIONS.find(x=>x.id===id);
+  const box=document.getElementById('qm_'+id);
+  if(!q||!box) return;
+  box.outerHTML=questionMediaHTML(q);   // 只重画这一个媒体块，不碰同页其它未保存的编辑
+}
+async function qStartRec(id){
+  if(!tCanRec()){ toast("这个浏览器不能录音，请用「传文件」"); return; }
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    const mime=tMime();
+    const mr= mime? new MediaRecorder(stream,{mimeType:mime}) : new MediaRecorder(stream);
+    const chunks=[]; let live=false, onLive=null;
+    mr.ondataavailable=e=>{ if(e.data&&e.data.size){ chunks.push(e.data); if(!live){ live=true; if(onLive) onLive(); } } };
+    mr.onstop=()=>{
+      try{ stream.getTracks().forEach(x=>x.stop()); }catch(e){}
+      const s=QREC[id]||{}; clearInterval(s.timer);
+      const blob=new Blob(chunks,{type:mr.mimeType||mime||"audio/webm"});
+      if(blob.size<1200){ delete QREC[id]; refreshQuestionMedia(id); toast("好像没录到声音，请再试一次"); return; }
+      if(s.url) URL.revokeObjectURL(s.url);
+      s.blob=blob; s.url=URL.createObjectURL(blob); s.on=false;
+      QREC[id]=s; refreshQuestionMedia(id);
+    };
+    if(QREC[id]&&QREC[id].url) URL.revokeObjectURL(QREC[id].url);
+    QREC[id]={mr,stream,on:true,warm:true,t0:0,timer:null,blob:null,url:null};
+    refreshQuestionMedia(id);
+    mr.start(250);                       // 立刻开录，早说也不丢
+    // 等「真的有声音进来」才叫人说话 —— 第一次用麦克风时设备初始化很慢，固定延时不可靠
+    await new Promise(res=>{ if(live) return res(); onLive=res; setTimeout(res,3000); });
+    const s=QREC[id];
+    if(!s||!s.on){ try{ mr.state!=='inactive'&&mr.stop(); }catch(e){}
+                   try{ stream.getTracks().forEach(x=>x.stop()); }catch(e){} return; }
+    s.warm=false; s.t0=Date.now();
+    s.timer=setInterval(()=>{
+      const c=QREC[id]; if(!c) return;
+      const el=document.getElementById('qrt_'+id), ms=Date.now()-c.t0;
+      if(el) el.textContent=Math.floor(ms/60000)+":"+String(Math.floor(ms/1000)%60).padStart(2,"0");
+      if(ms>5*60*1000) qStopRec(id);
+    },250);
+    refreshQuestionMedia(id);
+  }catch(e){ delete QREC[id]; refreshQuestionMedia(id); toast("不能录音：请允许使用麦克风"); }
+}
+function qStopRec(id){
+  const s=QREC[id]; if(!s||!s.on) return;
+  if(s.warm){                            // 还在热身就取消
+    s.on=false;
+    try{ s.stream&&s.stream.getTracks().forEach(x=>x.stop()); }catch(e){}
+    clearInterval(s.timer); delete QREC[id]; refreshQuestionMedia(id); return;
+  }
+  try{ if(s.mr.state==='recording') s.mr.requestData(); s.mr.stop(); }
+  catch(e){ s.on=false; refreshQuestionMedia(id); }
+}
+async function qUseRec(id){
+  const s=QREC[id]; if(!s||!s.blob){ toast("还没有录音"); return; }
+  toast("上传中…请等一下");
+  const ext=tExt(s.blob.type);
+  const path='task-media/'+Date.now()+'_'+Math.random().toString(36).slice(2,8)+'.'+ext;
+  const up=await sb.storage.from('uploads').upload(path,s.blob,{cacheControl:'3600',upsert:false,contentType:s.blob.type});
+  if(up.error){ toast("上传失败："+up.error.message); return; }
+  const url=sb.storage.from('uploads').getPublicUrl(path).data.publicUrl;
+  const {error}=await sb.from('questions').update({media_url:url}).eq('id',id);   // 目标表写死 questions
+  if(error){ toast("保存失败："+error.message); return; }
+  if(s.url) URL.revokeObjectURL(s.url);
+  delete QREC[id];
+  toast("加好了 ✓ 学生就能听到了");
+  await loadQuestions();
 }
 async function uploadQuestionMedia(id){
   const el=document.getElementById('qf_'+id); const f=el&&el.files[0]; if(!f) return;
