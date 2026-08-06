@@ -1323,7 +1323,8 @@ function renderBankList(){
   box.innerHTML=list.map(q=>{
     const flags=[];
     // 这两条跟 build_week_tasks() 的安全规则一一对应，是「这道题会不会被跳过」的直接原因
-    if(q.skill==='listen' && !String(q.media_url||'').trim()) flags.push('缺录音');
+    // 「要不要录音」看 needs_audio，不是看技能 —— 发音题 P7、说话题 S12 也写了「听我念…」
+    if(needsAudio(q) && !String(q.media_url||'').trim())      flags.push('缺录音');
     if(!String(q.description_pinyin||'').trim())              flags.push('缺拼音');
     // 没标话题的题谁都拿得到 —— 包括还没学过这个内容的学生，所以要标出来。
     // 发音题例外：声调、轻声、变调跟「学过什么内容」无关，本来就该谁都能做，不标话题是对的。
@@ -1402,6 +1403,12 @@ function questionEditorHTML(q){
    ⚠️ 【绝对不能】复用 mediaBlockHTML / uploadMedia / removeMedia ——
    那三个的目标表写死是 track_tasks 或 task_templates，永远不会写 questions 表，
    拿来用会「看起来成功、其实没保存」。这一套的目标表写死成 questions。 */
+/* 这道题要不要老师录音才成立。
+   needs_audio 没设过（null）→ 退回旧行为，按「是不是听力题」判断。
+   ⚠️ 这个判断必须跟 build_week_tasks() 里的 SQL 完全一致，否则后台的「缺录音」会骗人。 */
+function needsAudio(q){
+  return (q.needs_audio===null||q.needs_audio===undefined) ? (q.skill==='listen') : !!q.needs_audio;
+}
 function questionMediaHTML(q){
   const u=q.media_url||'';
   let show='<div class="hint">还没有语音／图片。听力题和发音题一定要传，不然学生看到的是一道没声音的题。</div>';
@@ -1412,6 +1419,11 @@ function questionMediaHTML(q){
     else show='<a href="'+esc(u)+'" target="_blank" rel="noopener">附件</a>';
   }
   // 录音的四种状态：没在录 / 准备中 / 录音中 / 录好了还没采用
+  const na=needsAudio(q);
+  const naBox='<label style="display:flex;align-items:center;gap:7px;margin:8px 0 0;font-size:13px;font-weight:600;color:var(--ink2);cursor:pointer">'+
+    '<input type="checkbox" id="q_na_'+q.id+'" style="width:auto;margin:0"'+(na?' checked':'')+
+    ' onchange="saveNeedsAudio(\''+q.id+'\',this.checked)"> 这道题必须有老师录音'+
+    '<span style="font-weight:400;color:var(--ink3)">（勾了但没录音 → 自动排课会跳过它）</span></label>';
   const st=QREC[q.id]||{};
   let rec;
   if(st.on && st.warm){
@@ -1430,8 +1442,16 @@ function questionMediaHTML(q){
   return '<div class="mediabox" id="qm_'+q.id+'"><div><b>题目的语音／图片</b>'+
     (u?'<span class="mtag">已有</span>':'')+'</div>'+show+
     '<input type="file" id="qf_'+q.id+'" style="display:none" onchange="uploadQuestionMedia(\''+q.id+'\')">'+
-    (st.url?rec:'<div class="rowend">'+rec+'</div>')+
+    (st.url?rec:'<div class="rowend">'+rec+'</div>')+naBox+
     '</div>';
+}
+/* 勾/取消「必须有录音」。单独存，不用点保存 —— 跟传语音一样是即时生效的动作。 */
+async function saveNeedsAudio(id,on){
+  const {error}=await sb.from('questions').update({needs_audio:!!on}).eq('id',id);
+  if(error){ toast('保存失败：'+error.message); return; }
+  const q=QUESTIONS.find(x=>x.id===id); if(q) q.needs_audio=!!on;
+  toast(on?'已标记「必须有录音」':'已取消 —— 这题没录音也会照常发');
+  renderBankList();
 }
 
 /* ---------- 题库页「直接录音」（写 questions 表）----------
