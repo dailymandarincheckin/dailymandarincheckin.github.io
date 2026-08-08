@@ -296,6 +296,37 @@ details.pyfold[open]>summary{margin-bottom:2px}
 .t-ex .ex-zh{font-size:14.5px;color:var(--ink);letter-spacing:.6px;line-height:1.85}
 .t-ex .ex-py{font-size:11.5px;color:var(--ink3);font-style:italic;margin-top:2px;line-height:1.6}
 
+/* 「跟我念」—— 跟读／朗读题要念的内容。
+   跟例句（.t-ex 压进纸里）分开：这一块是【任务本身】，所以浮起来、用沙色、字更大。 */
+.t-say{
+  margin-top:14px;border-radius:var(--r-md);padding:13px 15px;
+  background:linear-gradient(180deg,var(--sand-hi),var(--sand));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5);
+}
+.t-say .lbl{
+  font-size:11px;color:#8a6f45;letter-spacing:.8px;margin-bottom:8px;font-weight:600;
+  /* 必须 flex：icon() 生成的 svg 带 .gi（display:block），不 flex 会自己占一行把标签挤断 */
+  display:flex;align-items:center;gap:6px;
+}
+/* lines：句子竖排，带编号 */
+.t-say .line{display:flex;gap:9px;align-items:flex-start;margin-bottom:9px}
+.t-say .line:last-child{margin-bottom:0}
+.t-say .no{
+  flex:0 0 19px;height:19px;border-radius:50%;margin-top:3px;
+  background:rgba(255,255,255,.75);color:#8a6f45;
+  font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;
+}
+.t-say .zh{font-size:16px;color:var(--ink);letter-spacing:.8px;line-height:1.7}
+.t-say .py{font-size:12px;color:#8a6f45;font-style:italic;line-height:1.5;margin-top:1px}
+/* words：词语横排小卡 */
+.t-say .words{display:flex;flex-wrap:wrap;gap:8px}
+.t-say .w{
+  background:rgba(255,255,255,.72);border-radius:12px;padding:8px 14px;text-align:center;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.8);
+}
+.t-say .w .wz{font-size:16.5px;color:var(--ink);letter-spacing:1px;line-height:1.5}
+.t-say .w .wp{font-size:11.5px;color:#8a6f45;font-style:italic;line-height:1.4}
+
 .typetag{
   flex:none;display:inline-flex;align-items:center;gap:5px;
   font-size:10.5px;letter-spacing:.2px;padding:3px 10px 3px 8px;border-radius:var(--r-pill);
@@ -1049,12 +1080,39 @@ function sentHTML(day, isUpload){
 
 /* ===== 一天的对话流 =====
    老师气泡（出题）→ 分步条 → 我的回答气泡 →（交了之后）老师评语气泡 */
+/* 「跟我念」块：跟读／朗读题要念的内容。
+   两种排版由后台的 say_mode 决定，不靠猜：
+     lines = 句子，竖排带 ①②③ 编号
+     words = 词语，横排小卡（用「、」分隔）
+   拼音（say_pinyin）跟内容一一对应；HSK4 那几道故意留空，防拼音依赖。
+   ⚠️ 老题目没有这三个字段（走旧手工作业逻辑的学生也没有）→ 返回空字符串，行为跟以前一样。 */
+function sayBlockHTML(t){
+  const mode=String(t.say_mode||'').trim(), txt=String(t.say_text||'').trim();
+  if(!mode||!txt) return "";
+  const py=String(t.say_pinyin||'').trim();
+  const lbl='<div class="lbl">'+icon('i-mic','')+' 跟我念 · Read after me</div>';
+  if(mode==='words'){
+    const zs=txt.split('、'), ps=py?py.split('、'):[];
+    return '<div class="t-say">'+lbl+'<div class="words">'+
+      zs.map((z,i)=>'<div class="w"><div class="wz">'+esc(z.trim())+'</div>'+
+        (ps[i]?'<div class="wp">'+esc(ps[i].trim())+'</div>':'')+'</div>').join('')+
+      '</div></div>';
+  }
+  const zs=txt.split('\n').filter(x=>x.trim()), ps=py?py.split('\n'):[];
+  return '<div class="t-say">'+lbl+
+    zs.map((z,i)=>'<div class="line"><span class="no">'+(i+1)+'</span><div>'+
+      '<div class="zh">'+esc(z.trim())+'</div>'+
+      (ps[i]&&ps[i].trim()?'<div class="py">'+esc(ps[i].trim())+'</div>':'')+
+    '</div></div>').join('')+'</div>';
+}
+
 function cardHTML(t,done){
   const day=(t.day||"").toUpperCase();
   const isUpload=(t.type!=="text");
   const isDone=!!done[day];
 
   /* --- 老师的题目气泡 --- */
+  const sayHTML=sayBlockHTML(t);
   let exampleHTML="";
   if(t.example){
     exampleHTML='<div class="t-ex"><div class="lbl">可以这样说 · You could say</div>'+
@@ -1094,7 +1152,7 @@ function cardHTML(t,done){
           '<div class="t-title">'+esc(t.title||"")+
             (t.title_en?'<span class="eng">'+esc(t.title_en)+'</span>':'')+'</div>'+
           descHTML(t)+
-          mediaHTML+exampleHTML+
+          mediaHTML+sayHTML+exampleHTML+
         '</div>'+
       '</div>'+
     '</div>';

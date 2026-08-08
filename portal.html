@@ -1370,8 +1370,22 @@ function questionEditorHTML(q){
       '<textarea id="q_desc_py_'+q.id+'" placeholder="正文拼音（纯口语学生只看这一份，指令也要标）">'+esc(q.description_pinyin||'')+'</textarea>'+
       (noPy?'<div class="follow-note" style="margin-top:8px">⚠️ 这道题缺拼音，<b>纯口语学生（Fitri）用不了</b>。</div>':'')+
       warn+
+      // 「跟我念」：跟读／朗读题要念的内容。跟「例句」是两回事 ——
+      // 例句＝可以这样说（参考答案），这里＝照着念的原文。S12 两个都有。
+      '<label>跟我念 Read after me<span style="color:var(--ink3);font-weight:400"> · 学生要照着念的内容，会单独显示成一块</span></label>'+
+      '<div class="grid2" style="grid-template-columns:1fr 2fr">'+
+        '<select id="q_saym_'+q.id+'">'+
+          ['','lines','words'].map(m=>'<option value="'+m+'"'+((q.say_mode||'')===m?' selected':'')+'>'+
+            (m===''?'不显示（普通题）':m==='lines'?'句子 · 竖排编号（一行一句）':'词语 · 横排小卡（用、分隔）')+
+          '</option>').join('')+
+        '</select>'+
+        '<div style="font-size:12px;color:var(--sub);line-height:1.7;padding-top:9px">'+
+          '句子模式：一行一句，换行分开。词语模式：用「、」分开。</div>'+
+      '</div>'+
+      '<textarea id="q_say_'+q.id+'" placeholder="要念的内容">'+esc(q.say_text||'')+'</textarea>'+
+      '<textarea id="q_saypy_'+q.id+'" placeholder="拼音（跟上面一一对应；HSK3 以上可以留空，防拼音依赖）">'+esc(q.say_pinyin||'')+'</textarea>'+
       '<div class="grid2" style="margin:8px 0">'+
-        '<input id="q_ex_'+q.id+'" value="'+esc(q.example||'')+'" placeholder="例句">'+
+        '<input id="q_ex_'+q.id+'" value="'+esc(q.example||'')+'" placeholder="例句（可以这样说 · 参考答案）">'+
         '<input id="q_ex_py_'+q.id+'" value="'+esc(q.example_pinyin||'')+'" placeholder="例句拼音">'+
       '</div>'+
       // 话题：决定这道题会发给谁。选项跟着「水平」走（HSK1 有 15 个，HSK4 有 31 个）
@@ -1554,7 +1568,9 @@ async function saveQuestion(id){
     description_pinyin:v('desc_py')||null,
     example:v('ex')||null, example_pinyin:v('ex_py')||null,
     skill:sel('skill'), level:sel('level'), answer_type:sel('at'),
-    topic:(sel('topic')||null)
+    topic:(sel('topic')||null),
+    say_mode:(sel('saym')||null),
+    say_text:(v('say')||null), say_pinyin:(v('saypy')||null)
   };
   const {error}=await sb.from('questions').update(payload).eq('id',id);
   if(error){ toast("保存失败："+error.message); return; }
