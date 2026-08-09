@@ -518,22 +518,7 @@ audio{width:100%;margin-bottom:10px;}
 .qbody{padding:0 13px;}
 .qbody:not(:empty){padding:2px 13px 13px;}
 
-/* 学生「学过哪些话题」的勾选格 */
-.topicbox{display:flex;flex-wrap:wrap;gap:6px;}
-.topicbox .tpk{
-  display:flex;align-items:center;gap:6px;margin:0;cursor:pointer;
-  font-size:13px;font-weight:600;color:var(--ink2);
-  background:linear-gradient(180deg,var(--card-hi),var(--card));
-  border-radius:var(--r-pill);padding:5px 12px;
-  box-shadow:inset 0 0 0 1px var(--line-soft),inset 0 1px 0 var(--edge);
-}
-.topicbox .tpk:hover{color:var(--clay);}
-.topicbox .tpk input{width:auto;margin:0;}
-.topicbox .tpk:has(input:checked){
-  background:linear-gradient(180deg,var(--moss-hi,var(--card-hi)),var(--moss,var(--card)));
-  color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--bamboo);
-}
-
+/* 话题勾选格的样式已删（2026-08-09 废弃话题尺子） */
 @media(max-width:640px){.hub{flex-direction:column;}.hub-side,.hub-side.collapsed{width:100%;flex:1 1 auto;}}
 </style>
 </head>
@@ -660,20 +645,9 @@ const LEVEL_ORDER={pinyin:0,hsk1:1,hsk2:2,hsk3:3,hsk4:4,hsk5:5,hsk6:6,zero:0,beg
 // 配方（自动排课）用：五个技能的中文名和排列顺序
 const SKILL_CN={speak:"说",listen:"听",read:"读",write:"写",pinyin:"发音"};
 const SKILL_ORDER=["speak","listen","read","write","pinyin"];
-/* HSK 大纲官方【二级话题】，逐字抄自《HSK 考试大纲》(HSK 3.0) 的「话题大纲」章节。
-   完整对照表（含三级话题）在 HSK_TOPICS.md。
-   用途：题目标一个话题、学生勾学过的话题 → 出题只取交集。
-   为什么用话题不用「教材第几课」：学生用的教材不一样，课次不可比；话题是语言内容本身。
-   零基础（拼音）没有官方话题表，沿用 HSK1 的。 */
-const HSK_TOPIC={
-  hsk1:["个人信息","事件信息","物品信息","环境信息","交往","饮食","交通出行","购物","医疗健康","休闲","学习情况","校园生活","工作情况","职业","饮食文化"],
-  hsk2:["个人信息","事件信息","物品信息","环境信息","交往","饮食","交通出行","购物","医疗健康","休闲","家庭生活","学习情况","校园生活","工作情况","职业","传统习俗","饮食文化","姓氏文化"],
-  hsk3:["个人情况","日常事务","交往","饮食","交通出行","购物","医疗健康","休闲","社区","家庭生活","学习情况","校园生活","教育问题","日常办公","职业与经历","自然","环境","社会情况","文艺","体育","饮食文化","风俗传统"],
-  hsk4:["个人情况","日常事务","交往","饮食","交通出行","购物","医疗健康","休闲","社区","家庭生活","学习情况","校园生活","教育问题","日常办公","职业与经历","单位情况","自然","环境","科技发展","科学知识","概况","经济现象","社会现象","文艺","体育","中外交流","语言文字","饮食文化","民俗传统","人文景观","历史"],
-  hsk5:["日常事务","饮食","交通出行","购物","医疗健康","休闲","社区","家庭生活","学习情况","校园生活","教育问题","职业与经历","经营与管理","自然","环境","科技发展","科学知识","概况","经济现象","社会现象","文艺","体育","中外交流","语言文字","民俗传统","人文景观","传统思想与艺术","历史","古代科技"],
-  hsk6:["日常事务","饮食","交通出行","医疗健康","社区","学习情况","校园生活","教育问题","职业与经历","经营与管理","自然","环境","科技发展","科学知识","经济现象","社会现象","文艺","体育","中外交流","语言文字","民俗传统","人文景观","传统思想与艺术","历史","古代科技"]
-};
-function topicsOf(level){ return HSK_TOPIC[level] || HSK_TOPIC.hsk1; }
+/* ⚠️ 2026-08-09：HSK_TOPIC 官方话题清单 + topicsOf() 已删除。
+   话题尺子废弃 —— 81 道题一道都没标过话题，过滤从上线起就是空转的。
+   现在只用「学到第几课」分层。原清单存档在 HSK_TOPICS.md，要恢复可从那里抄回来。 */
 function typeOptions(cur){return Object.keys(TYPE_LABEL).map(k=>`<option value="${k}" ${cur===k?'selected':''}>${TYPE_LABEL[k]}</option>`).join('');}
 function levelOptions(cur){return LEVEL_KEYS.map(k=>`<option value="${k}" ${cur===k?'selected':''}>${LEVEL_LABEL[k]}</option>`).join('');}
 
@@ -930,18 +904,14 @@ function toggleSide(){ sideCollapsed=!sideCollapsed; renderStudents(); }
 function toggleGroup(t){ tmplGroupOpen[t]=!tmplGroupOpen[t]; renderStudents(); }
 function selectStudent(id){ selectedStuId=id; renderStudents(); renderStudentDetail(id); window.scrollTo({top:0,behavior:'smooth'}); }
 
-/* 学生「学过哪些话题」的勾选块。
-   这是一对一教学的关键：同是 HSK1，Jin 学到第 3 课、Ashraffaiz 第 14 课，
-   勾了什么就只拿什么，不会收到没学过的内容（例：没勾「购物」就不会拿到听价钱）。
-   ⚠️ 一个都不勾 = 不过滤 = 拿全部（这是安全默认值，见 supabase_v6_topics.sql 开头）。 */
+/* 学生的「学到第几课」设置块。
+   这是一对一教学分层的唯一尺子：同是 HSK1，Jin 学到第 3 课、Ashraffaiz 第 14 课，
+   只会拿到自己课次以内的题。
+   ⚠️ 2026-08-09：原本这里还有一个「学过哪些话题」勾选块，已整块删除。
+      原因：81 道题一道都没标过话题，话题过滤从上线起就是空转的；
+      而且题库总共才 81 道，再加一层过滤会把池子筛空。students.topics 列还在，
+      但不再读也不再写。详见 §5.8。 */
 function studentTopicsHTML(s){
-  const list=topicsOf(s.stu_level);
-  const on=Array.isArray(s.topics)?s.topics:[];
-  const boxes=list.map((t,i)=>'<label class="tpk"><input type="checkbox" id="tp_'+i+'" value="'+esc(t)+'"'+
-    (on.indexOf(t)>=0?' checked':'')+'> '+esc(t)+'</label>').join('');
-  const note = on.length
-    ? '勾了 <b>'+on.length+'/'+list.length+'</b> 个话题 —— 只有这些话题的题目会发给 ta。'
-    : '⚠️ <b>一个都没勾 = 不过滤</b>，ta 会拿到这个水平的<b>全部</b>题目，包括还没学过的内容。';
   return '<div class="card2" style="margin-top:12px">'+
     // 课次尺子：这才是让同水平学生分层的东西（话题只能减，不能分难度）
     '<div class="sechead"><span class="dot"></span><span>学到第几课 · 决定他拿到多难的题</span></div>'+
@@ -957,19 +927,7 @@ function studentTopicsHTML(s){
         ? '⚠️ <b>还没填课次</b>，ta 会拿到这个水平的<b>全部</b>题目 —— 同水平的学生作业会一模一样。'
         : '只会拿到<b>第 '+s.lesson+' 课以内</b>的题。课次越高，能做的题越多、也越难。')+
     '</div>'+
-    '<div class="sechead"><span class="dot"></span><span>学过哪些话题 · '+
-      esc(LEVEL_LABEL[s.stu_level]||s.stu_level||'')+' 共 '+list.length+' 个（HSK 大纲官方话题）</span></div>'+
-    '<div class="topicbox">'+boxes+'</div>'+
-    '<div class="rowend">'+
-      '<button class="btn sm" onclick="saveTopics(\''+s.id+'\')">保存话题</button>'+
-      '<button class="btn ghost sm" onclick="pickAllTopics(true)">全选</button>'+
-      '<button class="btn ghost sm" onclick="pickAllTopics(false)">全不选</button>'+
-    '</div>'+
-    '<div class="follow-note" style="margin-top:10px">'+note+'</div>'+
   '</div>';
-}
-function pickAllTopics(on){
-  document.querySelectorAll('.topicbox input[type=checkbox]').forEach(c=>{c.checked=on;});
 }
 async function saveLesson(id){
   const el=document.getElementById('stu_lesson'); if(!el) return;
@@ -979,15 +937,6 @@ async function saveLesson(id){
   const {error}=await sb.from('students').update({lesson:n}).eq('id',id);
   if(error){ toast('保存失败：'+error.message); return; }
   toast(n===null?'已清空 —— 这个学生会拿到全部题目':('已保存 ✓ 只拿第 '+n+' 课以内的题'));
-  await loadStudents(); selectStudent(id);
-}
-async function saveTopics(id){
-  const picked=[...document.querySelectorAll('.topicbox input[type=checkbox]')]
-    .filter(c=>c.checked).map(c=>c.value);
-  // 一个都没勾就存 null（＝不过滤），别存空数组 —— SQL 那边两者行为一样，但 null 更清楚
-  const {error}=await sb.from('students').update({topics:picked.length?picked:null}).eq('id',id);
-  if(error){ toast('保存失败：'+error.message); return; }
-  toast(picked.length?('已保存 ✓ 勾了 '+picked.length+' 个话题'):'已清空 —— 这个学生会拿到全部题目');
   await loadStudents(); selectStudent(id);
 }
 
@@ -1380,9 +1329,7 @@ function renderBankList(){
     // 「要不要录音」看 needs_audio，不是看技能 —— 发音题 P7、说话题 S12 也写了「听我念…」
     if(needsAudio(q) && !String(q.media_url||'').trim())      flags.push('缺录音');
     if(!String(q.description_pinyin||'').trim())              flags.push('缺拼音');
-    // 没标话题的题谁都拿得到 —— 包括还没学过这个内容的学生，所以要标出来。
-    // 发音题例外：声调、轻声、变调跟「学过什么内容」无关，本来就该谁都能做，不标话题是对的。
-    if(q.skill!=='pinyin' && !String(q.topic||'').trim())     flags.push('缺话题');
+    // ⚠️「缺话题」这个警告已于 2026-08-09 拿掉 —— 话题尺子废弃，现在只用课次尺子分层。
     return '<div class="qrow'+(bankOpen[q.id]?' open':'')+'" id="qr_'+q.id+'">'+
       '<div class="qhead" onclick="toggleQ(\''+q.id+'\')">'+
         '<span class="qk">'+esc(SKILL_CN[q.skill]||q.skill)+'</span>'+
@@ -1444,18 +1391,11 @@ function questionEditorHTML(q){
         '<input id="q_ex_'+q.id+'" value="'+esc(q.example||'')+'" placeholder="例句 · ⚠️ 学生端目前不显示">'+
         '<input id="q_ex_py_'+q.id+'" value="'+esc(q.example_pinyin||'')+'" placeholder="例句拼音">'+
       '</div>'+
-      // 话题：决定这道题会发给谁。选项跟着「水平」走（HSK1 有 15 个，HSK4 有 31 个）
       // 课次：这道题要学到《新HSK教程1》第几课才做得了。空 = 不限（发音题就该留空）
+      // ⚠️ 话题尺子已于 2026-08-09 废弃（81 道题一道都没标过话题，过滤一直空转）。
+      //    现在只用课次尺子分层。questions.topic 列还在但不再编辑，见 §5.8。
       '<label>课次 Lesson<span style="color:var(--ink3);font-weight:400"> · 要学到《新HSK教程1》第几课才做得了；留空 = 不限课次</span></label>'+
       '<input type="number" min="1" max="15" id="q_lesson_'+q.id+'" value="'+esc(q.lesson==null?'':q.lesson)+'" placeholder="留空 = 谁都能做">'+
-      '<label>话题 Topic<span style="color:var(--ink3);font-weight:400"> · 只有勾过这个话题的学生才会拿到这道题</span></label>'+
-      '<select id="q_topic_'+q.id+'">'+
-        '<option value=""'+(!q.topic?' selected':'')+'>（还没标 · 所有学生都会拿到）</option>'+
-        topicsOf(q.level).map(t=>'<option value="'+esc(t)+'"'+(q.topic===t?' selected':'')+'>'+esc(t)+'</option>').join('')+
-        // 万一这道题的话题不在当前水平的清单里（比如改过水平），也要留住，不然一保存就没了
-        (q.topic && topicsOf(q.level).indexOf(q.topic)<0
-          ? '<option value="'+esc(q.topic)+'" selected>'+esc(q.topic)+'（不在 '+esc(LEVEL_LABEL[q.level]||q.level)+' 的清单里）</option>' : '')+
-      '</select>'+
       questionMediaHTML(q)+
       '<div class="rowend">'+
         '<button class="btn sm" onclick="saveQuestion(\''+q.id+'\')">💾 保存</button>'+
@@ -1627,7 +1567,7 @@ async function saveQuestion(id){
     description_pinyin:v('desc_py')||null,
     example:v('ex')||null, example_pinyin:v('ex_py')||null,
     skill:sel('skill'), level:sel('level'), answer_type:sel('at'),
-    topic:(sel('topic')||null),
+    // topic 故意不写 —— 话题尺子已废弃（2026-08-09），保存时不碰这一列
     lesson:(v('lesson')?parseInt(v('lesson'),10):null),
     say_mode:(sel('saym')||null),
     say_text:(v('say')||null), say_pinyin:(v('saypy')||null)
