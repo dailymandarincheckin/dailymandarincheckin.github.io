@@ -1439,7 +1439,9 @@ function questionEditorHTML(q){
       '<textarea id="q_say_'+q.id+'" placeholder="要念的内容">'+esc(q.say_text||'')+'</textarea>'+
       '<textarea id="q_saypy_'+q.id+'" placeholder="拼音（跟上面一一对应；HSK3 以上可以留空，防拼音依赖）">'+esc(q.say_pinyin||'')+'</textarea>'+
       '<div class="grid2" style="margin:8px 0">'+
-        '<input id="q_ex_'+q.id+'" value="'+esc(q.example||'')+'" placeholder="例句（可以这样说 · 参考答案）">'+
+        // ⚠️ 老师 2026-08-07 要求「可以这样说」全部不显示给学生（直接给答案，学生照抄）。
+        // 数据没删、这里还能编辑，但学生端 checkin.html 的 SHOW_EXAMPLE=false 挡住了显示。
+        '<input id="q_ex_'+q.id+'" value="'+esc(q.example||'')+'" placeholder="例句 · ⚠️ 学生端目前不显示">'+
         '<input id="q_ex_py_'+q.id+'" value="'+esc(q.example_pinyin||'')+'" placeholder="例句拼音">'+
       '</div>'+
       // 话题：决定这道题会发给谁。选项跟着「水平」走（HSK1 有 15 个，HSK4 有 31 个）
