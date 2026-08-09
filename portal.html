@@ -943,6 +943,20 @@ function studentTopicsHTML(s){
     ? '勾了 <b>'+on.length+'/'+list.length+'</b> 个话题 —— 只有这些话题的题目会发给 ta。'
     : '⚠️ <b>一个都没勾 = 不过滤</b>，ta 会拿到这个水平的<b>全部</b>题目，包括还没学过的内容。';
   return '<div class="card2" style="margin-top:12px">'+
+    // 课次尺子：这才是让同水平学生分层的东西（话题只能减，不能分难度）
+    '<div class="sechead"><span class="dot"></span><span>学到第几课 · 决定他拿到多难的题</span></div>'+
+    '<div class="rowend" style="margin:0 0 4px">'+
+      '<input type="number" min="1" max="15" id="stu_lesson" style="width:110px;margin:0" '+
+        'value="'+esc(s.lesson==null?'':s.lesson)+'" placeholder="第几课">'+
+      '<button class="btn sm" onclick="saveLesson(\''+s.id+'\')">保存课次</button>'+
+      '<span style="font-size:12px;color:var(--sub);line-height:1.7">'+
+        '《新HSK教程1》第几课（1–15）。留空 = 不限，拿全部题。</span>'+
+    '</div>'+
+    '<div class="follow-note" style="margin:8px 0 16px">'+
+      (s.lesson==null
+        ? '⚠️ <b>还没填课次</b>，ta 会拿到这个水平的<b>全部</b>题目 —— 同水平的学生作业会一模一样。'
+        : '只会拿到<b>第 '+s.lesson+' 课以内</b>的题。课次越高，能做的题越多、也越难。')+
+    '</div>'+
     '<div class="sechead"><span class="dot"></span><span>学过哪些话题 · '+
       esc(LEVEL_LABEL[s.stu_level]||s.stu_level||'')+' 共 '+list.length+' 个（HSK 大纲官方话题）</span></div>'+
     '<div class="topicbox">'+boxes+'</div>'+
@@ -956,6 +970,16 @@ function studentTopicsHTML(s){
 }
 function pickAllTopics(on){
   document.querySelectorAll('.topicbox input[type=checkbox]').forEach(c=>{c.checked=on;});
+}
+async function saveLesson(id){
+  const el=document.getElementById('stu_lesson'); if(!el) return;
+  const v=el.value.trim();
+  const n=v===''?null:parseInt(v,10);
+  if(n!==null && (isNaN(n)||n<1||n>15)){ toast('课次要填 1 到 15，或者留空'); return; }
+  const {error}=await sb.from('students').update({lesson:n}).eq('id',id);
+  if(error){ toast('保存失败：'+error.message); return; }
+  toast(n===null?'已清空 —— 这个学生会拿到全部题目':('已保存 ✓ 只拿第 '+n+' 课以内的题'));
+  await loadStudents(); selectStudent(id);
 }
 async function saveTopics(id){
   const picked=[...document.querySelectorAll('.topicbox input[type=checkbox]')]
@@ -1419,6 +1443,9 @@ function questionEditorHTML(q){
         '<input id="q_ex_py_'+q.id+'" value="'+esc(q.example_pinyin||'')+'" placeholder="例句拼音">'+
       '</div>'+
       // 话题：决定这道题会发给谁。选项跟着「水平」走（HSK1 有 15 个，HSK4 有 31 个）
+      // 课次：这道题要学到《新HSK教程1》第几课才做得了。空 = 不限（发音题就该留空）
+      '<label>课次 Lesson<span style="color:var(--ink3);font-weight:400"> · 要学到《新HSK教程1》第几课才做得了；留空 = 不限课次</span></label>'+
+      '<input type="number" min="1" max="15" id="q_lesson_'+q.id+'" value="'+esc(q.lesson==null?'':q.lesson)+'" placeholder="留空 = 谁都能做">'+
       '<label>话题 Topic<span style="color:var(--ink3);font-weight:400"> · 只有勾过这个话题的学生才会拿到这道题</span></label>'+
       '<select id="q_topic_'+q.id+'">'+
         '<option value=""'+(!q.topic?' selected':'')+'>（还没标 · 所有学生都会拿到）</option>'+
@@ -1599,6 +1626,7 @@ async function saveQuestion(id){
     example:v('ex')||null, example_pinyin:v('ex_py')||null,
     skill:sel('skill'), level:sel('level'), answer_type:sel('at'),
     topic:(sel('topic')||null),
+    lesson:(v('lesson')?parseInt(v('lesson'),10):null),
     say_mode:(sel('saym')||null),
     say_text:(v('say')||null), say_pinyin:(v('saypy')||null)
   };
