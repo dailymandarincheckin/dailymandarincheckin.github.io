@@ -296,6 +296,17 @@ details.pyfold[open]>summary{margin-bottom:2px}
 .t-ex .ex-zh{font-size:14.5px;color:var(--ink);letter-spacing:.6px;line-height:1.85}
 .t-ex .ex-py{font-size:11.5px;color:var(--ink3);font-style:italic;margin-top:2px;line-height:1.6}
 
+/* 「这题我看不懂」—— 故意做得很轻，不能跟「提交打卡」抢注意力 */
+.hardrow{display:flex;justify-content:center;margin-top:10px}
+.hardbtn{
+  background:none;border:none;cursor:pointer;padding:6px 10px;
+  font-family:inherit;font-size:12.5px;color:var(--ink3);letter-spacing:.4px;
+  display:flex;align-items:center;gap:7px;border-radius:var(--r-sm);
+}
+.hardbtn:hover{color:var(--clay)}
+.hardbtn .eng{font-size:11px}
+.hardbtn.sent{color:var(--bamboo);cursor:default}
+
 /* 「跟我念」—— 跟读／朗读题要念的内容。
    跟例句（.t-ex 压进纸里）分开：这一块是【任务本身】，所以浮起来、用沙色、字更大。 */
 .t-say{
@@ -1113,8 +1124,13 @@ function cardHTML(t,done){
 
   /* --- 老师的题目气泡 --- */
   const sayHTML=sayBlockHTML(t);
+  /* 「可以这样说」老师要求 2026-08-07 全部不显示 ——
+     理由：它直接把答案写出来，学生照抄就交，等于没练。
+     ⚠️ 数据没删（questions.example 还在，后台也还能编辑），
+        以后想改成【句型框架】（如「我＿＿有空。」）把 SHOW_EXAMPLE 改回 true 即可。 */
+  const SHOW_EXAMPLE=false;
   let exampleHTML="";
-  if(t.example){
+  if(SHOW_EXAMPLE && t.example){
     exampleHTML='<div class="t-ex"><div class="lbl">可以这样说 · You could say</div>'+
       '<div class="ex-zh">'+esc(t.example)+'</div>'+
       (t.pinyin?'<div class="ex-py">'+esc(t.pinyin)+'</div>':'')+'</div>';
@@ -1186,6 +1202,13 @@ function cardHTML(t,done){
         '<textarea class="answer" id="ans_'+day+'" placeholder="在这里打字回答…　Type your answer here"></textarea>'+
         '<button class="btn" id="btn_'+day+'" onclick="submitText(\''+day+'\')">提交打卡<span class="eng">Submit &amp; check in</span></button>'+
       '</div></div></div>';
+  }
+  /* 还没交的那天，底下给一个「这题我看不懂」——
+     任何尺子都会漏，与其追求更准，不如让学生一键告诉老师。
+     故意做得很轻（小字、无框），不能比「提交打卡」显眼，否则会变成逃避的出口。 */
+  if(!isDone){
+    html+='<div class="hardrow"><button class="hardbtn" id="hard_'+day+'" '+
+      'onclick="flagTooHard(\''+day+'\')">这题我看不懂<span class="eng">I don\'t understand this one</span></button></div>';
   }
 
   /* --- 老师的评语（交了之后才有） --- */
@@ -1529,6 +1552,24 @@ function sentEnded(day){
 }
 
 function togglePast(){ showPast=!showPast; renderTask(); }
+
+/* 学生点「这题我看不懂」→ 记一条给老师看。
+   ⚠️ 不写 submissions ——那张表里出现一条就等于「这天交了」，打卡状态会被算成完成。
+   所以后端是单独的 too_hard 表。这里点了【不算完成、也不算断卡】，只是通知老师。 */
+async function flagTooHard(day){
+  const b=document.getElementById('hard_'+day);
+  if(b && b.classList.contains('sent')) return;
+  const t=(taskMap()||{})[day]||{};
+  try{
+    const r=await rpc('flag_too_hard',{p_username:currentUsername,p_day:day,p_title:t.title||''});
+    if(!r||r.ok===false){ toast('没送出去，等一下再试 · Could not send'); return; }
+  }catch(e){ toast('没送出去，等一下再试 · Could not send'); return; }
+  if(b){
+    b.classList.add('sent');
+    b.innerHTML=icon('i-check')+'已经告诉老师了<span class="eng">Your teacher has been told</span>';
+  }
+  toast('已经告诉老师了 · Your teacher has been told');
+}
 
 /* 上传型提交 */
 const fileStore={};

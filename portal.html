@@ -584,6 +584,7 @@ audio{width:100%;margin-bottom:10px;}
           <input type="checkbox" id="onlyPending" style="width:auto;" onchange="renderReview()"> 只看待批
         </label>
       </div>
+      <div id="hardBox"></div>
       <div id="reviewBody"><div class="spin"></div></div>
     </div>
 
@@ -724,7 +725,7 @@ function restoreTab(){
 /* ---------- 加载数据 ---------- */
 async function loadAll(){
   await loadTracks();
-  await Promise.all([loadStudents(), loadSubs(), loadQuestions()]);
+  await Promise.all([loadStudents(), loadSubs(), loadQuestions(), loadTooHard()]);
 }
 async function loadTracks(){
   const {data,error}=await sb.from('tracks').select('*').order('created_at',{ascending:true});
@@ -814,6 +815,35 @@ function submissionCardHTML(s){
     <textarea id="fb_${s.id}" placeholder="写评语…">${esc(fb)}</textarea>
     <div class="rowend"><button class="btn bamboo sm" onclick="saveFeedback('${s.id}')">✓ ${reviewed?'更新评语':'标记已批'}</button></div>
   </div>`;
+}
+
+/* 「这题我看不懂」—— 学生点了会出现在批改页最上面。
+   这是尺子的兜底：任何尺子都会漏题，学生一点老师就知道该调哪道。
+   处理完点「知道了」就消失（resolved=true），不删记录。 */
+let TOOHARD=[];
+async function loadTooHard(){
+  const {data,error}=await sb.rpc('teacher_too_hard');
+  if(error){ TOOHARD=[]; renderTooHard(); return; }   // 表还没建就当没有，不打扰老师
+  TOOHARD=data||[]; renderTooHard();
+}
+function renderTooHard(){
+  const box=document.getElementById('hardBox'); if(!box) return;
+  if(!TOOHARD.length){ box.innerHTML=''; return; }
+  box.innerHTML='<div class="card2" style="margin-bottom:14px">'+
+    '<div class="sechead"><span class="dot"></span><span>⚠️ 有学生说看不懂 · '+TOOHARD.length+' 条</span></div>'+
+    TOOHARD.map(h=>'<div class="ro-day">'+
+      '<span class="d">'+esc(DAYCN[h.day]||h.day||'')+'</span>'+
+      '<span style="flex:1"><b>'+esc(h.name||'')+'</b> ｜ '+esc(h.title||'（没有标题）')+'</span>'+
+      '<button class="btn ghost sm" onclick="resolveTooHard(\''+h.id+'\')">知道了</button>'+
+    '</div>').join('')+
+    '<div style="font-size:12px;color:var(--sub);margin-top:10px;line-height:1.8">'+
+      '去「📖 题库」把这道题改简单，或把它的话题改成学生还没勾的那个，他就不会再拿到了。</div>'+
+  '</div>';
+}
+async function resolveTooHard(id){
+  const {error}=await sb.from('too_hard').update({resolved:true}).eq('id',id);
+  if(error){ toast('失败：'+error.message); return; }
+  await loadTooHard();
 }
 
 function renderReview(){
