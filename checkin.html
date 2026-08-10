@@ -510,6 +510,16 @@ details.pyfold[open]>summary{margin-bottom:2px}
 }
 .orfile label:hover{color:var(--clay);border-color:var(--clay)}
 .fileName{font-size:12px;color:var(--ink2);margin-top:10px;text-align:center;line-height:1.7;letter-spacing:.2px}
+/* 上传失败时的详细原因。以前只弹一个「上传失败」就没了，老师根本查不到为什么。
+   这块会一直留在页面上，学生可以直接截图给老师。 */
+.uperr{
+  display:none;margin-top:10px;padding:10px 12px;border-radius:var(--r-md);
+  background:var(--card-hi);box-shadow:inset 0 0 0 1px var(--line-soft);
+  font-size:12px;color:var(--ink2);line-height:1.75;letter-spacing:.2px;text-align:left;
+}
+.uperr.show{display:block}
+.uperr .why{font-size:11px;color:var(--ink3);word-break:break-all;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;margin-top:6px;user-select:all}
 
 /* 我交上去的东西 */
 .myfile{display:flex;align-items:center;gap:11px;font-size:14px;color:var(--ink2)}
@@ -1191,6 +1201,7 @@ function cardHTML(t,done){
         '<div id="recui_'+day+'"></div>'+
         '<input type="file" id="file_'+day+'" style="display:none" onchange="pickFile(\''+day+'\')">'+
         '<div class="fileName" id="fname_'+day+'"></div>'+
+        '<div class="uperr" id="uperr_'+day+'"></div>'+
         '<div class="orfile">或 <label for="file_'+day+'">选文件上传（照片／影片）</label><span class="eng">Or choose a file (photo / video)</span></div>'+
         '<button class="btn ghost" id="btn_'+day+'" onclick="submitUpload(\''+day+'\')">提交打卡<span class="eng">先录音或选文件 · Record or pick a file first</span></button>'+
       '</div></div></div>';
@@ -1452,7 +1463,9 @@ async function startRec(day){
     };
     mr.onstop=()=>{
       try{ stream.getTracks().forEach(t=>t.stop()); }catch(e){}
-      const st=REC[day]||{};
+      const st=REC[day];
+      // 学生中途改成「选文件上传」了 → 这段录音是被主动放弃的，别再把它复活成 blob
+      if(!st || st.abandoned){ return; }
       clearInterval(st.timer);
       const type=mr.mimeType||mime||"audio/webm";
       const blob=new Blob(chunks,{type});
@@ -1573,16 +1586,55 @@ async function flagTooHard(day){
 
 /* 上传型提交 */
 const fileStore={};
+/* 彻底放弃这一天的录音：关掉麦克风、停掉计时器、清干净。
+   ⚠️ 以前这里只写 delete REC[day] —— 正在录的时候麦克风【不会关】，会一直开着录。
+   必须先打 abandoned 标记再 stop()，否则 mr.onstop 会把录音复活成 blob。 */
+function abandonRec(day){
+  const st=REC[day]; if(!st) return;
+  st.abandoned=true;
+  try{ if(st.mr && st.mr.state!=='inactive') st.mr.stop(); }catch(e){}
+  try{ if(st.stream) st.stream.getTracks().forEach(t=>t.stop()); }catch(e){}
+  clearInterval(st.timer);
+  if(st.url) URL.revokeObjectURL(st.url);
+  delete REC[day];
+}
+
 function pickFile(day){
-  const f=document.getElementById('file_'+day).files[0];
+  const input=document.getElementById('file_'+day);
+  const f=input.files[0];
   if(!f)return;
+  // 一天只能交一样东西。已经有录音还去选文件 → 录音会没。
+  // ⚠️ 以前这里【不问一声就删】，学生录了两分钟手滑点一下就全没了，也不能撤销。
+  const st=REC[day];
+  if(st && (st.blob || st.on || st.warm)){
+    const ok=confirm(
+      "你已经在录音了。换成这个文件的话，录音会被丢掉，而且拿不回来。\n\n"+
+      "You already have a recording. Choosing this file will discard it — permanently.\n\n"+
+      "要换成文件吗？ Replace it with this file?");
+    if(!ok){ input.value=""; return; }   // 保留录音，把刚选的文件丢掉（清空才能再选同一个文件）
+  }
+  abandonRec(day);
   document.getElementById('fname_'+day).textContent="已选：Selected · "+f.name;
   fileStore[day]=f;   // 直接存 File 对象，提交时上传到 Storage
-  // 选了文件就把录音丢掉，避免两个都在、不知道交哪个
-  const st=REC[day];
-  if(st){ if(st.url) URL.revokeObjectURL(st.url); delete REC[day]; }
+  showUpErr(day,'');  // 换了文件，上一次的失败信息就没意义了
   renderRecUI(day);
 }
+/* 上传失败的详细原因，写在页面上（不是弹一下就没）。
+   学生截图给老师，老师就能知道到底卡在哪一步、文件多大。
+   ⚠️ 别改回「只弹一个上传失败」—— 那样等于盲测，出事查不到原因。 */
+function showUpErr(day, stage, err, f){
+  const box=document.getElementById('uperr_'+day); if(!box) return;
+  if(!stage){ box.className='uperr'; box.innerHTML=''; return; }
+  const size = f ? (f.size/1048576).toFixed(2)+'MB' : '?';
+  const why  = (err && (err.message||String(err))) || '没有错误信息 no message';
+  box.innerHTML =
+    '交不上去，卡在「'+stage+'」这一步。'+
+    '<br><span class="eng">Failed at: '+stage+'</span>'+
+    '<br>请把这一块截图给蔡老师。<span class="eng">Please screenshot this for your teacher.</span>'+
+    '<div class="why">'+esc(size+' · '+((f&&f.type)||'类型未知')+'\n'+why).slice(0,400)+'</div>';
+  box.className='uperr show';
+}
+
 function submitUpload(day){
   const st=REC[day];
   const rec = (st && st.blob) ? st.blob : null;      // 录音优先
@@ -1592,11 +1644,16 @@ function submitUpload(day){
   const btn=document.getElementById('btn_'+day);
   btn.disabled=true; btn.classList.remove('ghost');
   btn.innerHTML='上传中…<span class="eng">Uploading</span>';
+  showUpErr(day,'');                       // 重试时先把上一次的错误清掉
+  let stage='传文件到服务器';               // 记住失败在哪一步：传文件？还是记打卡？
   // 先上传文件到 Storage，拿到网址，再写一条打卡记录
   uploadFile(f, rec ? extOf(rec.type) : null)
-    .then(url=>rpc("submit_checkin",{p_username:currentUsername,p_day:day,p_task_title:cleanText(t.title),p_type:"upload",p_text_answer:"",p_file_url:url}))
-    .then(res=>{ if(!res||!res.ok) throw new Error("submit failed"); markDone(day); })
-    .catch(()=>{ btn.disabled=false; refreshSubmitBtn(day); toast("上传失败，请重试 · Upload failed, please retry"); });
+    .then(url=>{ stage='记录打卡';
+      return rpc("submit_checkin",{p_username:currentUsername,p_day:day,p_task_title:cleanText(t.title),p_type:"upload",p_text_answer:"",p_file_url:url}); })
+    .then(res=>{ if(!res||!res.ok) throw new Error("submit_checkin 没有回 ok"); markDone(day); })
+    .catch(err=>{ btn.disabled=false; refreshSubmitBtn(day);
+      showUpErr(day, stage, err, f);
+      toast("上传失败，请重试 · Upload failed, please retry"); });
 }
 
 /* 打字型提交 */
