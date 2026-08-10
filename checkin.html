@@ -504,12 +504,29 @@ details.pyfold[open]>summary{margin-bottom:2px}
 .btn.ghost .eng{color:var(--ink3);opacity:.75}
 
 .orfile{text-align:center;font-size:12px;color:var(--ink3);margin-top:13px;letter-spacing:.2px;line-height:1.8}
-.orfile label{
+.orfile label,.orfile a{
   color:var(--ink2);cursor:pointer;border-bottom:1px solid var(--line);padding-bottom:1px;
   transition:color .18s ease,border-color .18s ease;
 }
-.orfile label:hover{color:var(--clay);border-color:var(--clay)}
+.orfile label:hover,.orfile a:hover{color:var(--clay);border-color:var(--clay)}
 .fileName{font-size:12px;color:var(--ink2);margin-top:10px;text-align:center;line-height:1.7;letter-spacing:.2px}
+/* 页面内相机（2026-08-09）。
+   为什么不用手机自己的相机：安卓叫出相机 App 时 Chrome 会退到后台，内存紧张就被杀掉，
+   照片带不回来（Ming Hong 和 Ming Xuan 两台手机都这样）。在页面里开相机就不会离开 Chrome。 */
+.camwrap{margin-top:12px;display:none}
+.camwrap.show{display:block}
+.camstage{
+  position:relative;width:100%;aspect-ratio:3/4;max-height:58vh;overflow:hidden;
+  border-radius:var(--r-lg);background:var(--ink);
+  box-shadow:inset 0 0 0 1px var(--line-soft);
+}
+.camstage video,.camstage img{width:100%;height:100%;object-fit:cover;display:block}
+.camrow{display:flex;gap:9px;margin-top:11px}
+.camrow .btn{flex:1;margin:0}
+.camhint{font-size:12px;color:var(--ink3);text-align:center;margin-top:9px;line-height:1.8;letter-spacing:.2px}
+.shot{margin-top:12px;display:none}
+.shot.show{display:block}
+.shot img{width:100%;border-radius:var(--r-lg);display:block;box-shadow:inset 0 0 0 1px var(--line-soft)}
 /* 上传失败时的详细原因。以前只弹一个「上传失败」就没了，老师根本查不到为什么。
    这块会一直留在页面上，学生可以直接截图给老师。 */
 .uperr{
@@ -732,6 +749,10 @@ details.pyfold[open]>summary{margin-bottom:2px}
     <path d="M20.2 11.4A8.2 8.2 0 0 0 5.9 7.2"></path>
     <path d="M3.8 12.6a8.2 8.2 0 0 0 14.3 4.2"></path>
     <path d="M9.6 7.4H5.4V3.2"></path><path d="M14.4 16.6h4.2v4.2"></path>
+  </symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3.4 8.6h3.1l1.6-2.5h7.8l1.6 2.5h3.1a1.6 1.6 0 0 1 1.6 1.6v7.2a1.6 1.6 0 0 1-1.6 1.6H3.4a1.6 1.6 0 0 1-1.6-1.6v-7.2a1.6 1.6 0 0 1 1.6-1.6Z"></path>
+    <circle cx="12" cy="13.6" r="3.4"></circle>
   </symbol>
   <symbol id="i-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
     <rect x="2.8" y="4.8" width="18.4" height="14.4" rx="3.6"></rect>
@@ -1199,10 +1220,18 @@ function cardHTML(t,done){
       '<div class="bubblewrap"><div class="speaker">我的回答<span class="eng-i">My turn</span></div>'+
       '<div class="bubble full">'+
         '<div id="recui_'+day+'"></div>'+
+        '<div class="camwrap" id="cam_'+day+'"></div>'+
+        '<div class="shot" id="shot_'+day+'"></div>'+
         '<input type="file" id="file_'+day+'" style="display:none" onchange="pickFile(\''+day+'\')">'+
         '<div class="fileName" id="fname_'+day+'"></div>'+
         '<div class="uperr" id="uperr_'+day+'"></div>'+
-        '<div class="orfile">或 <label for="file_'+day+'">选文件上传（照片／影片）</label><span class="eng">Or choose a file (photo / video)</span></div>'+
+        '<div class="orfile">或 '+
+          (canPhoto() ? '<a onclick="startCam(\''+day+'\')">拍照</a> · ' : '')+
+          '<label for="file_'+day+'">选文件上传</label>'+
+          '<span class="eng">Or take a photo / choose a file</span>'+
+          '<div class="camhint">录音、拍照、选文件 —— <b>交一个就好</b>'+
+            '<span class="eng">Record, photograph, or upload — just one is enough</span></div>'+
+        '</div>'+
         '<button class="btn ghost" id="btn_'+day+'" onclick="submitUpload(\''+day+'\')">提交打卡<span class="eng">先录音或选文件 · Record or pick a file first</span></button>'+
       '</div></div></div>';
   } else {
@@ -1258,6 +1287,8 @@ const WAVEBARS=[6,12,19,9,15,20,7,13,18,10,16,6,11,17,8,14,19,9,12,6]
   .map(h=>'<i style="height:'+h+'px"></i>').join('');
 
 function renderTask(){
+  // 页面一重画，<video> 就没了，但摄像头【不会自己关】 —— 必须先收干净，否则镜头一直亮着
+  closeAllCams();
   renderWeek();
   const area=document.getElementById('taskArea');
   const tail=document.getElementById('tailArea');
@@ -1604,20 +1635,121 @@ function pickFile(day){
   const f=input.files[0];
   if(!f)return;
   // 一天只能交一样东西。已经有录音还去选文件 → 录音会没。
-  // ⚠️ 以前这里【不问一声就删】，学生录了两分钟手滑点一下就全没了，也不能撤销。
-  const st=REC[day];
-  if(st && (st.blob || st.on || st.warm)){
-    const ok=confirm(
-      "你已经在录音了。换成这个文件的话，录音会被丢掉，而且拿不回来。\n\n"+
-      "You already have a recording. Choosing this file will discard it — permanently.\n\n"+
-      "要换成文件吗？ Replace it with this file?");
-    if(!ok){ input.value=""; return; }   // 保留录音，把刚选的文件丢掉（清空才能再选同一个文件）
-  }
+  if(!askReplaceRec(day)){ input.value=""; return; }   // 清空才能再选同一个文件
   abandonRec(day);
+  clearShot(day);
   document.getElementById('fname_'+day).textContent="已选：Selected · "+f.name;
   fileStore[day]=f;   // 直接存 File 对象，提交时上传到 Storage
   showUpErr(day,'');  // 换了文件，上一次的失败信息就没意义了
   renderRecUI(day);
+}
+
+/* 已经有录音了还要换别的 → 先问一声。
+   ⚠️ 以前是【不问一声就删】，学生录了两分钟手滑点一下就全没了，也不能撤销。
+   返回 true = 学生同意换掉（或本来就没录音）。 */
+function askReplaceRec(day){
+  const st=REC[day];
+  if(!(st && (st.blob || st.on || st.warm))) return true;
+  return confirm(
+    "你已经在录音了。换成别的的话，录音会被丢掉，而且拿不回来。\n\n"+
+    "You already have a recording. Switching will discard it — permanently.\n\n"+
+    "要换吗？ Switch anyway?");
+}
+
+/* ===== 页面内相机 =====
+   ⚠️ 为什么不用 <input capture> 叫手机自己的相机 App：
+   安卓叫出相机 App 时 Chrome 会退到后台，内存一紧张就被系统杀掉，照片带不回来。
+   2026-08-09 实测 Ming Hong 和 Ming Xuan 两台手机都这样（从相册选就正常）。
+   在页面里开相机就【不会离开 Chrome】，从根上绕开这件事。别改回 capture。 */
+const CAM={};
+const SHOT_MAX=1600;      // 长边最多 1600px。相机原图 3–12MB，压完约 200–400KB，手机流量传得动
+const SHOT_QUALITY=0.85;
+
+function canPhoto(){ return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia); }
+
+/* 相机开着的时候页面重画会把 <video> 冲掉，但摄像头【不会自己关】 —— 必须先收干净 */
+function closeAllCams(){ Object.keys(CAM).forEach(closeCam); }
+
+function closeCam(day){
+  const c=CAM[day]; if(!c) return;
+  try{ if(c.stream) c.stream.getTracks().forEach(t=>t.stop()); }catch(e){}
+  delete CAM[day];
+  const box=document.getElementById('cam_'+day);
+  if(box){ box.innerHTML=''; box.className='camwrap'; }
+}
+
+function clearShot(day){
+  const s=document.getElementById('shot_'+day);
+  if(s){ s.innerHTML=''; s.className='shot'; }
+}
+
+function camFail(day, zh, en){
+  const box=document.getElementById('cam_'+day); if(!box) return;
+  box.innerHTML='<div class="camhint">'+esc(zh)+'<span class="eng">'+esc(en)+'</span>'+
+    '<br>可以改用下面的「选文件上传」。<span class="eng">You can use "choose a file" below instead.</span></div>';
+  box.className='camwrap show';
+}
+
+async function startCam(day){
+  if(!canPhoto()){ camFail(day,'这个浏览器不能直接拍照。',"This browser can't take photos."); return; }
+  if(!askReplaceRec(day)) return;
+  abandonRec(day); clearShot(day); delete fileStore[day];
+  const fn=document.getElementById('fname_'+day); if(fn) fn.textContent='';
+  showUpErr(day,'');
+  closeAllCams();                       // 一次只开一个相机
+
+  const box=document.getElementById('cam_'+day); if(!box) return;
+  box.innerHTML='<div class="camhint">正在开相机…<span class="eng">Opening camera…</span></div>';
+  box.className='camwrap show';
+  try{
+    // facingMode 用 ideal 不用 exact —— exact 在只有前镜头的机器上会直接失败
+    const stream=await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:{ideal:'environment'}, width:{ideal:1600}, height:{ideal:1600} }, audio:false });
+    CAM[day]={stream};
+    box.innerHTML=
+      '<div class="camstage"><video id="camv_'+day+'" autoplay playsinline muted></video></div>'+
+      '<div class="camrow">'+
+        '<button class="btn" onclick="shootPhoto(\''+day+'\')">拍<span class="eng">Take the photo</span></button>'+
+        '<button class="btn ghost" onclick="closeCam(\''+day+'\')">取消<span class="eng">Cancel</span></button>'+
+      '</div>'+
+      '<div class="camhint">对准要拍的东西，再按「拍」。<span class="eng">Point at it, then tap Take.</span></div>';
+    const v=document.getElementById('camv_'+day);
+    v.srcObject=stream; v.muted=true; v.playsInline=true;
+    try{ await v.play(); }catch(e){}
+  }catch(err){
+    const n=(err&&err.name)||'';
+    if(n==='NotAllowedError')      camFail(day,'你还没允许使用相机。请在浏览器里允许，再点一次「拍照」。',"Camera permission was denied. Allow it, then tap 拍照 again.");
+    else if(n==='NotFoundError')   camFail(day,'找不到相机。',"No camera found.");
+    else                           camFail(day,'相机打不开：'+(err&&err.message||n||'原因不明'),"Could not open the camera.");
+  }
+}
+
+function shootPhoto(day){
+  const c=CAM[day], v=document.getElementById('camv_'+day);
+  if(!c || !v || !v.videoWidth){ toast('相机还没准备好，等一下再按 · Camera not ready yet'); return; }
+  // 按长边缩到 SHOT_MAX，别把 12MP 原图直接传上去
+  const scale=Math.min(1, SHOT_MAX/Math.max(v.videoWidth, v.videoHeight));
+  const cv=document.createElement('canvas');
+  cv.width =Math.round(v.videoWidth *scale);
+  cv.height=Math.round(v.videoHeight*scale);
+  cv.getContext('2d').drawImage(v,0,0,cv.width,cv.height);
+  cv.toBlob(blob=>{
+    if(!blob){ toast('照片没拍成，请再试一次 · Could not save the photo'); return; }
+    const file=new File([blob],'photo_'+Date.now()+'.jpg',{type:'image/jpeg'});
+    fileStore[day]=file;                 // 走跟「选文件」完全一样的上传路径
+    closeCam(day);
+    const s=document.getElementById('shot_'+day);
+    if(s){
+      s.innerHTML='<img alt="" src="'+URL.createObjectURL(blob)+'">'+
+        '<div class="camrow"><button class="btn ghost" onclick="startCam(\''+day+'\')">重拍<span class="eng">Retake</span></button></div>'+
+        '<div class="camhint">拍好了，点下面「提交打卡」就交上去。'+
+          '<span class="eng">Got it — now tap Submit below.</span></div>';
+      s.className='shot show';
+    }
+    const fn=document.getElementById('fname_'+day);
+    if(fn) fn.textContent='已拍好：Photo taken · '+(blob.size/1048576).toFixed(2)+'MB';
+    refreshSubmitBtn(day);
+  },'image/jpeg',SHOT_QUALITY);
 }
 /* 上传失败的详细原因，写在页面上（不是弹一下就没）。
    学生截图给老师，老师就能知道到底卡在哪一步、文件多大。
@@ -1703,7 +1835,8 @@ function refreshFromServer(){
    但正在录音 / 打了一半字的时候不能刷，会把没交的东西冲掉。 */
 function busyNow(){
   if(Object.keys(REC).length) return true;                    // 在录 或 录好还没交
-  if(Object.keys(fileStore).length) return true;              // 选了文件还没交
+  if(Object.keys(fileStore).length) return true;              // 选了文件／拍了照还没交
+  if(Object.keys(CAM).length) return true;                    // 相机正开着，别把画面刷掉
   const a=document.querySelector('textarea.answer');
   if(a && a.value.trim()) return true;                        // 打了字还没交
   return false;
